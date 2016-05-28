@@ -161,15 +161,21 @@
   (let ((res (make-symbol "results")))
     `(let (,res)
        (pl-try
-        (while (not (eobp))
-          (push ,parser ,res)))
+           (while (not (eobp))
+             (push ,parser ,res)))
        (nreverse ,res))))
+
+(defmacro pl-many1 (parser)
+  `(cons ,parser (pl-many ,parser)))
 
 (defun pl-list-to-string (l)
   (mapconcat #'identity l ""))
 
 (defmacro pl-many-as-string (parser)
   `(mapconcat #'identity (pl-many ,parser) ""))
+
+(defmacro pl-many1-as-string (parser)
+  `(mapconcat #'identity (pl-many1 ,parser) ""))
 
 (defmacro pl-endby (parser end)
   `(pl-many (pl-return ,parser
@@ -179,6 +185,26 @@
   `(pl-or
     (cons ,parser (pl-many (pl-and ,separator ,parser)))
     nil))
+
+
+(defun pl-just (x) (cons 'Just x))
+
+(defvar pl-nothing 'Nothing)
+
+(defun pl-maybe-p (x)
+  (or (eq x pl-nothing)
+      (and
+       (consp x)
+       (eq (car x) 'Just))))
+
+(defmacro pl-make-maybe (&rest body)
+  (let ((res (make-symbol "result")))
+    `(let ((,res (pl-try
+                     ,@body)))
+       (if (pl-msg-p ,res)
+           pl-nothing
+         (pl-just ,res)))))
+
 
 (provide 'parsec)
 ;;; parsec.el ends here
