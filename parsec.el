@@ -30,24 +30,55 @@
   "Combinator parsing library for Emacs, similar to Haskell's Parsec"
   :group 'development)
 
+(defun pl-eob-or-char-as-string ()
+  (let ((c (char-after)))
+    (if c
+        (char-to-string c)
+      "`eob'")))
+
+(defun pl-msg (msg)
+  (cons 'pl-msg msg))
+
+(defun pl-msg-p (msg)
+  (and (consp msg)
+       (eq (car msg) 'pl-msg)))
+
+(defalias 'pl-msg-get 'cdr)
+
+(defun pl-stop (&rest args)
+  (throw 'failed
+         (let ((msg (plist-get args :message))
+               (expected (plist-get args :expected))
+               (found (plist-get args :found)))
+           (when (or (stringp msg)
+                     (and (stringp expected)
+                          (stringp found)))
+             (pl-msg (if (stringp msg)
+                         msg
+                       (format "Found \"%s\" -> Expected \"%s\""
+                               found expected)))))))
+
 (defun pl-ch (ch &rest args)
-  (if (and (not (eobp))
-           (char-equal (char-after) ch))
-      (prog1
-          (cond
-           ((memq :nil args) nil)
-           ((memq :beg args)
-            (point))
-           ((memq :end args)
-            (1+ (point)))
-           (t
-            (char-to-string ch)))
-        (forward-char 1))
-    (throw 'failed nil)))
+  (let ((next-char (char-after)))
+    (if (and (not (eobp))
+             (char-equal next-char ch))
+        (prog1
+            (cond
+             ((memq :nil args) nil)
+             ((memq :beg args)
+              (point))
+             ((memq :end args)
+              (1+ (point)))
+             (t
+              (char-to-string ch)))
+          (forward-char 1))
+      (pl-stop :expected (char-to-string ch)
+               :found (pl-eob-or-char-as-string)))))
 
 (defun pl-eob ()
   (unless (eobp)
-    (throw 'failed nil)))
+    (pl-stop :expected "`eob'"
+             :found (pl-eob-or-char-as-string))))
 
 (defun pl-re (regexp &rest args)
   (if (looking-at regexp)
@@ -69,7 +100,8 @@
            (t
             (match-string 0)))
         (goto-char (match-end 0)))
-    (throw 'failed nil)))
+    (pl-stop :expected regexp
+             :found (pl-eob-or-char-as-string))))
 
 (defsubst pl-str (str &rest args)
   (pl-re (regexp-quote str)))
@@ -79,47 +111,58 @@
 
 (defmacro pl-or (&rest parsers)
   (let ((outer-sym (make-symbol "outer"))
-        (parser-sym (make-symbol "parser"))
-        (error-sym (make-symbol "error-message")))
+        (parser-sym (make-symbol "parser")))
     `(loop named ,outer-sym for ,parser-sym in ',parsers
-           finally (throw 'failed nil) do
-           (when (setq ,error-sym
-                       (catch 'failed
-                         (return-from ,outer-sym (eval ,parser-sym))))
-             (error ,error-sym)))))
+           finally (pl-stop :message "None of the parsers succeeds") do
+           (pl-try
+            (return-from ,outer-sym (eval ,parser-sym))))))
 
 (defalias 'pl-and 'progn)
 
-(defmacro pl-failed (parser msg)
-  `(pl-or ,parser
-          (throw 'failed ,msg)))
+(defalias 'pl-return 'prog1)
 
 (defmacro pl-try (&rest forms)
   `(catch 'failed ,@forms))
 
+(defmacro pl-try-with-message (msg &rest forms)
+  (declare (indent 1))
+  (let ((res-sym (make-symbol "result")))
+    `(let ((,res-sym (pl-try ,@forms)))
+       ,(if msg
+            `(if (pl-msg-p ,res-sym)
+                 (pl-msg ,msg)
+               ,res-sym)
+          `,res-sym))))
+
+(defmacro pl-ensure-with-message (msg &rest forms)
+  (declare (indent 1))
+  (let* ((error-sym (make-symbol "err")))
+    `(let (,error-sym)
+       (if (pl-msg-p (setq ,error-sym
+                           (pl-try-with-message ,msg ,@forms)))
+           (error (pl-msg-get ,error-sym))
+         ,error-sym))))
+
+(defmacro pl-ensure (&rest forms)
+  `(pl-ensure-with-message nil ,@forms))
+
 (defalias 'pl-parse 'pl-try)
 
 (defmacro pl-until (parser &optional &key skip)
-  (let ((error-sym (make-symbol "error-message")))
-    `(let (,error-sym)
-       (catch 'done
-         (while (not (eobp))
-           (when (setq ,error-sym
-                       (catch 'failed
-                         (throw 'done ,parser)))
-             (error ,error-sym))
-           ,(if skip
-                `(,skip 1)
-              `(forward-char 1)))))))
+  `(catch 'done
+     (while (not (eobp))
+       (pl-try
+        (throw 'done ,parser))
+       ,(if skip
+            `(,skip 1)
+          `(forward-char 1)))))
 
 (defmacro pl-many (parser)
-  (let ((res (make-symbol "results"))
-        (msg (make-symbol "error-message")))
-    `(let (,res ,msg)
-       (when (setq ,msg (pl-try
-                         (while (not (eobp))
-                           (push ,parser ,res))))
-         (error ,msg))
+  (let ((res (make-symbol "results")))
+    `(let (,res)
+       (pl-try
+        (while (not (eobp))
+          (push ,parser ,res)))
        (nreverse ,res))))
 
 (defun pl-list-to-string (l)
@@ -129,7 +172,7 @@
   `(mapconcat #'identity (pl-many ,parser) ""))
 
 (defmacro pl-endby (parser end)
-  `(pl-many (prog1 ,parser
+  `(pl-many (pl-return ,parser
               ,end)))
 
 (defmacro pl-sepby (parser separator)
