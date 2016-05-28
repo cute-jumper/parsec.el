@@ -100,13 +100,17 @@
 (defalias 'pl-parse 'pl-try)
 
 (defmacro pl-until (parser &optional &key skip)
-  `(catch 'done
-     (while (not (eobp))
-       (catch 'failed
-         (throw 'done ,parser))
-       ,(if skip
-            `(,skip 1)
-          `(forward-char 1)))))
+  (let ((error-sym (make-symbol "error-message")))
+    `(let (,error-sym)
+       (catch 'done
+         (while (not (eobp))
+           (when (setq ,error-sym
+                       (catch 'failed
+                         (throw 'done ,parser)))
+             (error ,error-sym))
+           ,(if skip
+                `(,skip 1)
+              `(forward-char 1)))))))
 
 (defmacro pl-many (parser)
   (let ((res (make-symbol "results"))
