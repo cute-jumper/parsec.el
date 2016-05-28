@@ -24,29 +24,11 @@
 
 ;;; Code:
 
-(defun csv-file ()
-  (pl-many (csv-line)))
+(require 'cl-lib)
 
-(defun csv-line ()
-  (prog1 (csv-cells)
-    (csv-eol)))
-
-(defun csv-eol ()
-  (pl-or (pl-str "\n\r")
-         (pl-str "\r\n")
-         (pl-str "\n")
-         (pl-str "\r")
-         (pl-eob)))
-
-(defun csv-cells ()
-  (cons (csv-cell-content) (csv-remaining-cells)))
-
-(defun csv-cell-content ()
-  (pl-many-as-string (pl-re "[^,\n]")))
-
-(defun csv-remaining-cells ()
-  (pl-or (pl-and (pl-ch ?,) (csv-cells))
-         nil))
+(defgroup pl nil
+  "Combinator parsing library for Emacs, similar to Haskell's Parsec"
+  :group 'development)
 
 (defun pl-ch (ch &rest args)
   (if (and (not (eobp))
@@ -63,11 +45,9 @@
         (forward-char 1))
     (throw 'failed nil)))
 
-(require 'cl-lib)
-
-(defgroup pl nil
-  "Combinator parsing library for Emacs, similar to Haskell's Parsec"
-  :group 'development)
+(defun pl-eob ()
+  (unless (eobp)
+    (throw 'failed nil)))
 
 (defun pl-re (regexp &rest args)
   (if (looking-at regexp)
@@ -108,10 +88,15 @@
                          (return-from ,outer-sym (eval ,parser-sym))))
              (error ,error-sym)))))
 
+(defalias 'pl-and 'progn)
+
+(defmacro pl-failed (parser msg)
+  `(pl-or ,parser
+          (throw 'failed ,msg)))
+
 (defmacro pl-try (&rest forms)
   `(catch 'failed ,@forms))
 
-(defalias 'pl-and 'progn)
 (defalias 'pl-parse 'pl-try)
 
 (defmacro pl-until (parser &optional &key skip)
@@ -122,9 +107,6 @@
        ,(if skip
             `(,skip 1)
           `(forward-char 1)))))
-(defun pl-eob ()
-  (unless (eobp)
-    (throw 'failed nil)))
 
 (defmacro pl-many (parser)
   (let ((res (make-symbol "results"))
@@ -136,11 +118,11 @@
          (error ,msg))
        (nreverse ,res))))
 
-(defmacro pl-many-as-string (parser)
-  `(mapconcat #'identity (pl-many ,parser) ""))
-
 (defun pl-list-to-string (l)
   (mapconcat #'identity l ""))
+
+(defmacro pl-many-as-string (parser)
+  `(mapconcat #'identity (pl-many ,parser) ""))
 
 (defmacro pl-endby (parser end)
   `(pl-many (prog1 ,parser
@@ -150,61 +132,6 @@
   `(pl-or
     (cons ,parser (pl-many (pl-and ,separator ,parser)))
     nil))
-
-(defmacro pl-failed (parser msg)
-  `(pl-or ,parser
-          (throw 'failed ,msg)))
-
-(defmacro pl-or (&rest parsers)
-  (let ((outer-sym (make-symbol "outer"))
-        (parser-sym (make-symbol "parser"))
-        (error-sym (make-symbol "error-message")))
-    `(loop named ,outer-sym for ,parser-sym in ',parsers
-           finally (throw 'failed nil) do
-           (when (setq ,error-sym (catch 'failed
-                                    (return-from ,outer-sym (eval ,parser-sym))))
-             (error ,error-sym)))))
-
-(defun csv-file1 ()
-  (pl-endby (csv-line1) (csv-eol)))
-
-(defun csv-line1 ()
-  (pl-sepby (csv-cell2) (pl-ch ?,)))
-
-(defun csv-cell1 ()
-  (pl-many-as-string (pl-re "[^,\r\n]")))
-
-(defun csv-cell2 ()
-  (pl-or (csv-quoted-cell) (pl-many (pl-re "[^,\n\r]"))))
-
-(defun csv-quoted-cell ()
-  (pl-ch ?\")
-  (prog1 (pl-many (csv-quoted-char))
-    (pl-failed (pl-ch ?\") "quote at end of cell")))
-
-(defun csv-quoted-char ()
-  (pl-or (pl-re "[^\"]")
-         (pl-and (pl-str "\"\"")
-                 "\"")))
-
-(defun parse-csv1 (input)
-  (with-temp-buffer
-    (insert input)
-    (goto-char (point-min))
-    (csv-file1)))
-(parse-csv1 "\"a,1,s,b,\r\nd,e,f")
-
-(defun parse-csv (input)
-  (with-temp-buffer
-    (insert input)
-    (goto-char (point-min))
-    (csv-file)))
-
-(parse-csv "a1s,b,\n\nd,e,f")
-(with-temp-buffer
-  (insert "a,b,")
-  (goto-char (point-min))
-  (csv-line))
 
 (provide 'parsec)
 ;;; parsec.el ends here
