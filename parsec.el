@@ -54,9 +54,9 @@
                      (and (stringp expected)
                           (stringp found)))
              (parsec-msg (if (stringp msg)
-                         msg
-                       (format "Found \"%s\" -> Expected \"%s\""
-                               found expected)))))))
+                             msg
+                           (format "Found \"%s\" -> Expected \"%s\""
+                                   found expected)))))))
 
 (defun parsec-ch (ch &rest args)
   (let ((next-char (char-after)))
@@ -73,12 +73,12 @@
               (char-to-string ch)))
           (forward-char 1))
       (parsec-stop :expected (char-to-string ch)
-               :found (parsec-eob-or-char-as-string)))))
+                   :found (parsec-eob-or-char-as-string)))))
 
 (defun parsec-eob ()
   (unless (eobp)
     (parsec-stop :expected "`eob'"
-             :found (parsec-eob-or-char-as-string))))
+                 :found (parsec-eob-or-char-as-string))))
 
 (defun parsec-re (regexp &rest args)
   (if (looking-at regexp)
@@ -139,7 +139,7 @@
   (let* ((error-sym (make-symbol "err")))
     `(let (,error-sym)
        (if (parsec-msg-p (setq ,error-sym
-                           (parsec-try-with-message ,msg ,@forms)))
+                               (parsec-try-with-message ,msg ,@forms)))
            (error (parsec-msg-get ,error-sym))
          ,error-sym))))
 
@@ -161,8 +161,8 @@
   (let ((res (make-symbol "results")))
     `(let (,res)
        (parsec-try
-           (while (not (eobp))
-             (push ,parser ,res)))
+        (while (not (eobp))
+          (push ,parser ,res)))
        (nreverse ,res))))
 
 (defmacro parsec-many1 (parser)
@@ -179,7 +179,7 @@
 
 (defmacro parsec-endby (parser end)
   `(parsec-many (parsec-return ,parser
-              ,end)))
+                  ,end)))
 
 (defmacro parsec-sepby (parser separator)
   `(parsec-or

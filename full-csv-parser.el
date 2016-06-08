@@ -26,8 +26,8 @@
 
 (defun csv-file ()
   (parsec-ensure
-      (parsec-return (parsec-endby (csv-line) (csv-eol))
-        (parsec-eob))))
+   (parsec-return (parsec-endby (csv-line) (csv-eol))
+     (parsec-eob))))
 
 (defun csv-line ()
   (parsec-sepby (csv-cell) (parsec-ch ?,)))
@@ -37,8 +37,8 @@
 
 (defun csv-quoted-cell ()
   (parsec-and (parsec-ch ?\")
-          (parsec-return (parsec-many-as-string (csv-quoted-char))
-            (parsec-ensure (parsec-ch ?\")))))
+              (parsec-return (parsec-many-as-string (csv-quoted-char))
+                (parsec-ensure (parsec-ch ?\")))))
 
 (defun csv-quoted-char ()
   (parsec-or (parsec-re "[^\"]")
