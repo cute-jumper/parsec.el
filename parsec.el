@@ -26,26 +26,26 @@
 
 (require 'cl-lib)
 
-(defgroup pl nil
+(defgroup parsec nil
   "Combinator parsing library for Emacs, similar to Haskell's Parsec"
   :group 'development)
 
-(defun pl-eob-or-char-as-string ()
+(defun parsec-eob-or-char-as-string ()
   (let ((c (char-after)))
     (if c
         (char-to-string c)
       "`eob'")))
 
-(defun pl-msg (msg)
-  (cons 'pl-msg msg))
+(defun parsec-msg (msg)
+  (cons 'parsec-msg msg))
 
-(defun pl-msg-p (msg)
+(defun parsec-msg-p (msg)
   (and (consp msg)
-       (eq (car msg) 'pl-msg)))
+       (eq (car msg) 'parsec-msg)))
 
-(defalias 'pl-msg-get 'cdr)
+(defalias 'parsec-msg-get 'cdr)
 
-(defun pl-stop (&rest args)
+(defun parsec-stop (&rest args)
   (throw 'failed
          (let ((msg (plist-get args :message))
                (expected (plist-get args :expected))
@@ -53,12 +53,12 @@
            (when (or (stringp msg)
                      (and (stringp expected)
                           (stringp found)))
-             (pl-msg (if (stringp msg)
+             (parsec-msg (if (stringp msg)
                          msg
                        (format "Found \"%s\" -> Expected \"%s\""
                                found expected)))))))
 
-(defun pl-ch (ch &rest args)
+(defun parsec-ch (ch &rest args)
   (let ((next-char (char-after)))
     (if (and (not (eobp))
              (char-equal next-char ch))
@@ -72,15 +72,15 @@
              (t
               (char-to-string ch)))
           (forward-char 1))
-      (pl-stop :expected (char-to-string ch)
-               :found (pl-eob-or-char-as-string)))))
+      (parsec-stop :expected (char-to-string ch)
+               :found (parsec-eob-or-char-as-string)))))
 
-(defun pl-eob ()
+(defun parsec-eob ()
   (unless (eobp)
-    (pl-stop :expected "`eob'"
-             :found (pl-eob-or-char-as-string))))
+    (parsec-stop :expected "`eob'"
+             :found (parsec-eob-or-char-as-string))))
 
-(defun pl-re (regexp &rest args)
+(defun parsec-re (regexp &rest args)
   (if (looking-at regexp)
       (prog1
           (cond
@@ -91,120 +91,118 @@
             (match-end 0))
            ((memq :group args)
             (let ((group
-                   (loop named outer for arg on args
-                         when (eq (car arg) :group) do
-                         (return-from outer (cadr arg)))))
+                   (cl-loop named outer for arg on args
+                            when (eq (car arg) :group) do
+                            (return-from outer (cadr arg)))))
               (if group
                   (match-string group)
                 (error "Unexpected regexp :group %s" group))))
            (t
             (match-string 0)))
         (goto-char (match-end 0)))
-    (pl-stop :expected regexp
-             :found (pl-eob-or-char-as-string))))
+    (parsec-stop :expected regexp
+                 :found (parsec-eob-or-char-as-string))))
 
-(defsubst pl-str (str &rest args)
-  (pl-re (regexp-quote str)))
+(defsubst parsec-str (str &rest args)
+  (parsec-re (regexp-quote str)))
 
-(defsubst pl-num (num &rest args)
-  (pl-re (regexp-quote (number-to-string num))))
+(defsubst parsec-num (num &rest args)
+  (parsec-re (regexp-quote (number-to-string num))))
 
-(defmacro pl-or (&rest parsers)
+(defmacro parsec-or (&rest parsers)
   (let ((outer-sym (make-symbol "outer"))
         (parser-sym (make-symbol "parser")))
-    `(loop named ,outer-sym for ,parser-sym in ',parsers
-           finally (pl-stop :message "None of the parsers succeeds") do
-           (pl-try
-            (return-from ,outer-sym (eval ,parser-sym))))))
+    `(cl-loop named ,outer-sym for ,parser-sym in ',parsers
+              finally (parsec-stop :message "None of the parsers succeeds") do
+              (parsec-try
+               (return-from ,outer-sym (eval ,parser-sym))))))
 
-(defalias 'pl-and 'progn)
+(defalias 'parsec-and 'progn)
 
-(defalias 'pl-return 'prog1)
+(defalias 'parsec-return 'prog1)
 
-(defmacro pl-try (&rest forms)
+(defmacro parsec-try (&rest forms)
   `(catch 'failed ,@forms))
 
-(defmacro pl-try-with-message (msg &rest forms)
+(defmacro parsec-try-with-message (msg &rest forms)
   (declare (indent 1))
   (let ((res-sym (make-symbol "result")))
-    `(let ((,res-sym (pl-try ,@forms)))
+    `(let ((,res-sym (parsec-try ,@forms)))
        ,(if msg
-            `(if (pl-msg-p ,res-sym)
-                 (pl-msg ,msg)
+            `(if (parsec-msg-p ,res-sym)
+                 (parsec-msg ,msg)
                ,res-sym)
           `,res-sym))))
 
-(defmacro pl-ensure-with-message (msg &rest forms)
+(defmacro parsec-ensure-with-message (msg &rest forms)
   (declare (indent 1))
   (let* ((error-sym (make-symbol "err")))
     `(let (,error-sym)
-       (if (pl-msg-p (setq ,error-sym
-                           (pl-try-with-message ,msg ,@forms)))
-           (error (pl-msg-get ,error-sym))
+       (if (parsec-msg-p (setq ,error-sym
+                           (parsec-try-with-message ,msg ,@forms)))
+           (error (parsec-msg-get ,error-sym))
          ,error-sym))))
 
-(defmacro pl-ensure (&rest forms)
-  `(pl-ensure-with-message nil ,@forms))
+(defmacro parsec-ensure (&rest forms)
+  `(parsec-ensure-with-message nil ,@forms))
 
-(defalias 'pl-parse 'pl-try)
+(defalias 'parsec-parse 'parsec-try)
 
-(defmacro pl-until (parser &optional &key skip)
+(defmacro parsec-until (parser &optional &key skip)
   `(catch 'done
      (while (not (eobp))
-       (pl-try
+       (parsec-try
         (throw 'done ,parser))
        ,(if skip
             `(,skip 1)
           `(forward-char 1)))))
 
-(defmacro pl-many (parser)
+(defmacro parsec-many (parser)
   (let ((res (make-symbol "results")))
     `(let (,res)
-       (pl-try
+       (parsec-try
            (while (not (eobp))
              (push ,parser ,res)))
        (nreverse ,res))))
 
-(defmacro pl-many1 (parser)
-  `(cons ,parser (pl-many ,parser)))
+(defmacro parsec-many1 (parser)
+  `(cons ,parser (parsec-many ,parser)))
 
-(defun pl-list-to-string (l)
+(defun parsec-list-to-string (l)
   (mapconcat #'identity l ""))
 
-(defmacro pl-many-as-string (parser)
-  `(mapconcat #'identity (pl-many ,parser) ""))
+(defmacro parsec-many-as-string (parser)
+  `(mapconcat #'identity (parsec-many ,parser) ""))
 
-(defmacro pl-many1-as-string (parser)
-  `(mapconcat #'identity (pl-many1 ,parser) ""))
+(defmacro parsec-many1-as-string (parser)
+  `(mapconcat #'identity (parsec-many1 ,parser) ""))
 
-(defmacro pl-endby (parser end)
-  `(pl-many (pl-return ,parser
+(defmacro parsec-endby (parser end)
+  `(parsec-many (parsec-return ,parser
               ,end)))
 
-(defmacro pl-sepby (parser separator)
-  `(pl-or
-    (cons ,parser (pl-many (pl-and ,separator ,parser)))
+(defmacro parsec-sepby (parser separator)
+  `(parsec-or
+    (cons ,parser (parsec-many (parsec-and ,separator ,parser)))
     nil))
 
+(defun parsec-just (x) (cons 'Just x))
 
-(defun pl-just (x) (cons 'Just x))
+(defvar parsec-nothing 'Nothing)
 
-(defvar pl-nothing 'Nothing)
-
-(defun pl-maybe-p (x)
-  (or (eq x pl-nothing)
+(defun parsec-maybe-p (x)
+  (or (eq x parsec-nothing)
       (and
        (consp x)
        (eq (car x) 'Just))))
 
-(defmacro pl-make-maybe (&rest body)
+(defmacro parsec-make-maybe (&rest body)
   (let ((res (make-symbol "result")))
-    `(let ((,res (pl-try
-                     ,@body)))
-       (if (pl-msg-p ,res)
-           pl-nothing
-         (pl-just ,res)))))
-
+    `(let ((,res (parsec-try
+                  ,@body)))
+       (if (parsec-msg-p ,res)
+           parsec-nothing
+         (parsec-just ,res)))))
 
 (provide 'parsec)
 ;;; parsec.el ends here

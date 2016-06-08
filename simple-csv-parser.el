@@ -25,24 +25,24 @@
 ;;; Code:
 
 (defun s-csv-file ()
-  (pl-many (s-csv-line)))
+  (parsec-many (s-csv-line)))
 
 (defun s-csv-line ()
   (prog1 (s-csv-cells)
     (s-csv-eol)))
 
 (defun s-csv-eol ()
-  (pl-or (pl-str "\n")
-         (pl-eob)))
+  (parsec-or (parsec-str "\n")
+             (parsec-eob)))
 
 (defun s-csv-cells ()
   (cons (s-csv-cell-content) (s-csv-remaining-cells)))
 
 (defun s-csv-cell-content ()
-  (pl-many-as-string (pl-re "[^,\n]")))
+  (parsec-many-as-string (parsec-re "[^,\n]")))
 
 (defun s-csv-remaining-cells ()
-  (pl-or (pl-and (pl-ch ?,) (s-csv-cells)) nil))
+  (parsec-or (parsec-and (parsec-ch ?,) (s-csv-cells)) nil))
 
 (defun s-parse-csv (input)
   (with-temp-buffer

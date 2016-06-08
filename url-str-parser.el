@@ -26,26 +26,26 @@
 
 
 (defun url-str-query ()
-  (pl-sepby (url-str-pair) (pl-ch ?&)))
+  (parsec-sepby (url-str-pair) (parsec-ch ?&)))
 
 (defun url-str-pair ()
   (cons
-   (pl-many1-as-string (url-str-char))
-   (pl-make-maybe (pl-and (pl-ch ?=) (pl-many-as-string (url-str-char))))))
+   (parsec-many1-as-string (url-str-char))
+   (parsec-make-maybe (parsec-and (parsec-ch ?=) (parsec-many-as-string (url-str-char))))))
 
 (defun url-str-char ()
-  (pl-or (pl-re "[a-zA-z0-9$_.!*'(),-]")
-         (pl-and (pl-ch ?+) " ")
-         (url-str-hex)))
+  (parsec-or (parsec-re "[a-zA-z0-9$_.!*'(),-]")
+             (parsec-and (parsec-ch ?+) " ")
+             (url-str-hex)))
 
 (defun url-str-hex ()
-  (pl-and
-    (pl-ch ?%)
-    (format "%c"
-            (string-to-number (format "%s%s"
-                                      (pl-re "[0-9a-zA-z]")
-                                      (pl-re "[0-9a-zA-z]"))
-                              16))))
+  (parsec-and
+   (parsec-ch ?%)
+   (format "%c"
+           (string-to-number (format "%s%s"
+                                     (parsec-re "[0-9a-zA-z]")
+                                     (parsec-re "[0-9a-zA-z]"))
+                             16))))
 
 (defun url-str-parse (input)
   (with-temp-buffer

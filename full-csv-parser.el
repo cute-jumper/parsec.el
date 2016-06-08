@@ -25,32 +25,32 @@
 ;;; Code:
 
 (defun csv-file ()
-  (pl-ensure
-      (pl-return (pl-endby (csv-line) (csv-eol))
-        (pl-eob))))
+  (parsec-ensure
+      (parsec-return (parsec-endby (csv-line) (csv-eol))
+        (parsec-eob))))
 
 (defun csv-line ()
-  (pl-sepby (csv-cell) (pl-ch ?,)))
+  (parsec-sepby (csv-cell) (parsec-ch ?,)))
 
 (defun csv-cell ()
-  (pl-or (csv-quoted-cell) (pl-many-as-string (pl-re "[^,\n\r]"))))
+  (parsec-or (csv-quoted-cell) (parsec-many-as-string (parsec-re "[^,\n\r]"))))
 
 (defun csv-quoted-cell ()
-  (pl-and (pl-ch ?\")
-          (pl-return (pl-many-as-string (csv-quoted-char))
-            (pl-ensure (pl-ch ?\")))))
+  (parsec-and (parsec-ch ?\")
+          (parsec-return (parsec-many-as-string (csv-quoted-char))
+            (parsec-ensure (parsec-ch ?\")))))
 
 (defun csv-quoted-char ()
-  (pl-or (pl-re "[^\"]")
-         (pl-and (pl-str "\"\"")
-                 "\"")))
+  (parsec-or (parsec-re "[^\"]")
+             (parsec-and (parsec-str "\"\"")
+                         "\"")))
 
 (defun csv-eol ()
-  (pl-or (pl-str "\n\r")
-         (pl-str "\r\n")
-         (pl-str "\n")
-         (pl-str "\r")
-         (pl-eob)))
+  (parsec-or (parsec-str "\n\r")
+             (parsec-str "\r\n")
+             (parsec-str "\n")
+             (parsec-str "\r")
+             (parsec-eob)))
 
 (defun parse-csv (input)
   (with-temp-buffer
