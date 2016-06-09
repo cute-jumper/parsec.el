@@ -30,6 +30,8 @@
   "Combinator parsing library for Emacs, similar to Haskell's Parsec"
   :group 'development)
 
+(defvar parsec-last-error-message nil)
+
 (defun parsec-eob-or-char-as-string ()
   (let ((c (char-after)))
     (if c
@@ -45,8 +47,12 @@
 
 (defalias 'parsec-msg-get 'cdr)
 
+(defsubst parsec-throw (msg)
+  (throw 'failed msg))
+
 (defun parsec-stop (&rest args)
-  (throw 'failed
+  (parsec-throw
+   (setq parsec-last-error-message
          (let ((msg (plist-get args :message))
                (expected (plist-get args :expected))
                (found (plist-get args :found)))
@@ -56,7 +62,7 @@
              (parsec-msg (if (stringp msg)
                              msg
                            (format "Found \"%s\" -> Expected \"%s\""
-                                   found expected)))))))
+                                   found expected))))))))
 
 (defun parsec-ch (ch &rest args)
   (let ((next-char (char-after)))
@@ -73,6 +79,23 @@
               (char-to-string ch)))
           (forward-char 1))
       (parsec-stop :expected (char-to-string ch)
+                   :found (parsec-eob-or-char-as-string)))))
+
+(defun parsec-satisfy (pred)
+  (let ((next-char (char-after)))
+    (if (and (not (eobp))
+             (funcall pred next-char))
+        (prog1
+            (cond
+             ((memq :nil args) nil)
+             ((memq :beg args)
+              (point))
+             ((memq :end args)
+              (1+ (point)))
+             (t
+              (char-to-string ch)))
+          (forward-char 1))
+      (parsec-stop :expected (format "%s" pred)
                    :found (parsec-eob-or-char-as-string)))))
 
 (defun parsec-eob ()
@@ -109,13 +132,29 @@
 (defsubst parsec-num (num &rest args)
   (parsec-re (regexp-quote (number-to-string num))))
 
+(defsubst parsec-letter ()
+  (parsec-re "[a-zA-Z]"))
+
+(defsubst parsec-digit ()
+  (parsec-re "[0-9]"))
+
 (defmacro parsec-or (&rest parsers)
   (let ((outer-sym (make-symbol "outer"))
-        (parser-sym (make-symbol "parser")))
-    `(cl-loop named ,outer-sym for ,parser-sym in ',parsers
-              finally (parsec-stop :message "None of the parsers succeeds") do
-              (parsec-try
-               (return-from ,outer-sym (eval ,parser-sym))))))
+        (parser-sym (make-symbol "parser"))
+        (msg-sym (make-symbol "msg"))
+        (error-sym (make-symbol "err")))
+    `(let (,msg-sym ,error-sym)
+       (cl-loop named ,outer-sym for ,parser-sym in ',parsers
+                finally (parsec-stop
+                         :message
+                         (if ,error-sym
+                             (mapconcat #'identity ,error-sym "\n")
+                           "None of the parsers succeeds"))
+                do
+                (parsec-try
+                 (cl-return-from ,outer-sym
+                   (parsec-propagate (,msg-sym (eval ,parser-sym))
+                     (add-to-list ',error-sym (parsec-msg-get ,msg-sym)))))))))
 
 (defalias 'parsec-and 'progn)
 
@@ -123,6 +162,25 @@
 
 (defmacro parsec-try (&rest forms)
   `(catch 'failed ,@forms))
+
+(defmacro parsec-save (&rest forms)
+  (let ((orig-pt-sym (make-symbol "orig-pt"))
+        (msg-sym (make-symbol "msg")))
+    `(let ((,orig-pt-sym (point))
+           ,msg-sym)
+       (parsec-propagate (,msg-sym (parsec-and ,@forms))
+         (goto-char ,orig-pt-sym)))))
+
+(defmacro parsec-propagate (parser-cons &rest body)
+  (declare (indent 1))
+  (let ((res-sym (car parser-cons)))
+    `(progn
+       (setq ,res-sym (parsec-try ,(cadr parser-cons)))
+       (if (parsec-msg-p ,res-sym)
+           (progn
+             ,@body
+             (parsec-throw ,res-sym))
+         ,res-sym))))
 
 (defmacro parsec-try-with-message (msg &rest forms)
   (declare (indent 1))
@@ -136,7 +194,7 @@
 
 (defmacro parsec-ensure-with-message (msg &rest forms)
   (declare (indent 1))
-  (let* ((error-sym (make-symbol "err")))
+  (let ((error-sym (make-symbol "err")))
     `(let (,error-sym)
        (if (parsec-msg-p (setq ,error-sym
                                (parsec-try-with-message ,msg ,@forms)))
@@ -148,7 +206,7 @@
 
 (defalias 'parsec-parse 'parsec-try)
 
-(defmacro parsec-until (parser &optional &key skip)
+(cl-defmacro parsec-until (parser &optional &key skip)
   `(catch 'done
      (while (not (eobp))
        (parsec-try
@@ -186,6 +244,12 @@
     (cons ,parser (parsec-many (parsec-and ,separator ,parser)))
     nil))
 
+(defmacro parsec-between (open close parser)
+  `(parsec-save
+    ,open
+    (parsec-return ,parser
+      ,close)))
+
 (defun parsec-just (x) (cons 'Just x))
 
 (defvar parsec-nothing 'Nothing)
@@ -203,6 +267,14 @@
        (if (parsec-msg-p ,res)
            parsec-nothing
          (parsec-just ,res)))))
+
+(defmacro parsec-do-parse (input &rest parsers)
+  (declare (indent 1))
+  `(with-temp-buffer
+     (insert ,input)
+     (goto-char (point-min))
+     (parsec-try
+      ,@parsers)))
 
 (provide 'parsec)
 ;;; parsec.el ends here
