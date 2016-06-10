@@ -143,17 +143,19 @@
         (parser-sym (make-symbol "parser"))
         (msg-sym (make-symbol "msg"))
         (error-sym (make-symbol "err")))
-    `(let (,msg-sym ,error-sym)
+    `(let (,error-sym)
        (cl-loop named ,outer-sym for ,parser-sym in ',parsers
                 finally (parsec-stop
                          :message
-                         (if ,error-sym
-                             (mapconcat #'identity ,error-sym "\n")
-                           "None of the parsers succeeds"))
+                         (replace-regexp-in-string
+                          "\n" "\n\t"
+                          (concat "None of the parsers succeeds:\n"
+                                  (mapconcat #'identity ,error-sym "\n"))))
                 do
                 (parsec-try
                  (cl-return-from ,outer-sym
-                   (parsec-propagate (,msg-sym (eval ,parser-sym))
+                   (parsec-with-error ,msg-sym
+                       (eval ,parser-sym)
                      (add-to-list ',error-sym (parsec-msg-get ,msg-sym)))))))))
 
 (defalias 'parsec-and 'progn)
@@ -166,21 +168,18 @@
 (defmacro parsec-save (&rest forms)
   (let ((orig-pt-sym (make-symbol "orig-pt"))
         (msg-sym (make-symbol "msg")))
-    `(let ((,orig-pt-sym (point))
-           ,msg-sym)
-       (parsec-propagate (,msg-sym (parsec-and ,@forms))
+    `(let ((,orig-pt-sym (point)))
+       (parsec-with-error ,msg-sym
+           (parsec-and ,@forms)
          (goto-char ,orig-pt-sym)))))
 
-(defmacro parsec-propagate (parser-cons &rest body)
-  (declare (indent 1))
-  (let ((res-sym (car parser-cons)))
-    `(progn
-       (setq ,res-sym (parsec-try ,(cadr parser-cons)))
-       (if (parsec-msg-p ,res-sym)
-           (progn
-             ,@body
-             (parsec-throw ,res-sym))
-         ,res-sym))))
+(defmacro parsec-with-error (error-sym parser &rest handler)
+  (declare (indent 2))
+  `(catch 'success
+     (let ((,error-sym (parsec-try
+                        (throw 'success ,parser))))
+       ,@handler
+       (parsec-throw ,error-sym))))
 
 (defmacro parsec-try-with-message (msg &rest forms)
   (declare (indent 1))
