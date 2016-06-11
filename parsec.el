@@ -48,7 +48,7 @@
 (defalias 'parsec-msg-get 'cdr)
 
 (defsubst parsec-throw (msg)
-  (throw 'failed msg))
+  (throw 'parsec-failed msg))
 
 (defun parsec-stop (&rest args)
   (parsec-throw
@@ -142,84 +142,105 @@
   (let ((outer-sym (make-symbol "outer"))
         (parser-sym (make-symbol "parser"))
         (msg-sym (make-symbol "msg"))
-        (error-sym (make-symbol "err")))
-    `(let (,error-sym)
+        (error-list-sym (make-symbol "err-list")))
+    `(let (,error-list-sym)
        (cl-loop named ,outer-sym for ,parser-sym in ',parsers
                 finally (parsec-stop
                          :message
                          (replace-regexp-in-string
                           "\n" "\n\t"
                           (concat "None of the parsers succeeds:\n"
-                                  (mapconcat #'identity ,error-sym "\n"))))
+                                  (mapconcat #'identity ,error-list-sym "\n"))))
                 do
-                (parsec-try
-                 (cl-return-from ,outer-sym
-                   (parsec-with-error ,msg-sym
-                       (eval ,parser-sym)
-                     (add-to-list ',error-sym (parsec-msg-get ,msg-sym)))))))))
+                (parsec--if-catch-and-forward 'parsec-failed-at-half
+                  (parsec-start
+                   (cl-return-from ,outer-sym
+                     (parsec--if-handle-and-forward ,msg-sym
+                         (parsec-as-single (eval ,parser-sym))
+                       (push (parsec-msg-get ,msg-sym) ,error-list-sym)))))))))
 
 (defalias 'parsec-and 'progn)
 
 (defalias 'parsec-return 'prog1)
 
-(defmacro parsec-try (&rest forms)
-  `(catch 'failed ,@forms))
+(defmacro parsec-start (&rest forms)
+  `(catch 'parsec-failed ,@forms))
 
-(defmacro parsec-save (&rest forms)
+(defalias 'parsec-parse 'parsec-start)
+
+(defmacro parsec-try (&rest forms)
   (let ((orig-pt-sym (make-symbol "orig-pt"))
         (msg-sym (make-symbol "msg")))
     `(let ((,orig-pt-sym (point)))
-       (parsec-with-error ,msg-sym
+       (parsec--if-handle-and-forward ,msg-sym
            (parsec-and ,@forms)
          (goto-char ,orig-pt-sym)))))
 
-(defmacro parsec-with-error (error-sym parser &rest handler)
+(defmacro parsec--if-catch (tag body &rest forms)
   (declare (indent 2))
-  `(catch 'success
-     (let ((,error-sym (parsec-try
-                        (throw 'success ,parser))))
+  `(catch 'parsec-success
+     (catch ,tag
+       (throw 'parsec-success ,body))
+     ,@forms))
+
+(defmacro parsec--if-catch-and-forward (tag parser)
+  (declare (indent 1))
+  (let ((error-sym (make-symbol "err")))
+    `(catch 'parsec-success
+       (parsec-throw (catch ,tag
+                       (throw 'parsec-success ,parser))))))
+
+(defmacro parsec--if-handle-and-forward (error-sym parser &rest handler)
+  (declare (indent 2))
+  `(catch 'parsec-success
+     (let ((,error-sym (parsec-start
+                        (throw 'parsec-success ,parser))))
        ,@handler
        (parsec-throw ,error-sym))))
 
-(defmacro parsec-try-with-message (msg &rest forms)
+(defmacro parsec-with-message (msg &rest forms)
   (declare (indent 1))
-  (let ((res-sym (make-symbol "result")))
-    `(let ((,res-sym (parsec-try ,@forms)))
-       ,(if msg
-            `(if (parsec-msg-p ,res-sym)
-                 (parsec-msg ,msg)
-               ,res-sym)
-          `,res-sym))))
+  `(parsec--if-catch 'parsec-failed
+       (parsec-and ,@forms)
+     (parsec-throw (parsec-msg msg))))
+
+(defmacro parsec-ensure (&rest forms)
+  `(parsec--if-handle-and-forward msg
+       (parsec-and ,@forms)
+     (error "%s" (parsec-msg-get msg))))
 
 (defmacro parsec-ensure-with-message (msg &rest forms)
   (declare (indent 1))
-  (let ((error-sym (make-symbol "err")))
-    `(let (,error-sym)
-       (if (parsec-msg-p (setq ,error-sym
-                               (parsec-try-with-message ,msg ,@forms)))
-           (error (parsec-msg-get ,error-sym))
-         ,error-sym))))
-
-(defmacro parsec-ensure (&rest forms)
-  `(parsec-ensure-with-message nil ,@forms))
-
-(defalias 'parsec-parse 'parsec-try)
+  `(parsec-ensure
+    (parsec-with-message msg
+      (parsec-and ,@forms))))
 
 (cl-defmacro parsec-until (parser &optional &key skip)
   `(catch 'done
      (while (not (eobp))
-       (parsec-try
+       (parsec-start
         (throw 'done ,parser))
        ,(if skip
             `(,skip 1)
           `(forward-char 1)))))
 
+(defmacro parsec-as-single (parser)
+  (let ((orig-pt-sym (make-symbol "orig-pt"))
+        (error-sym (make-symbol "err")))
+    `(let ((,orig-pt-sym (point)))
+       (parsec--if-handle-and-forward ,error-sym
+           ,parser
+         (unless (= (point) ,orig-pt-sym)
+           (throw 'parsec-failed-at-half ,error-sym))))))
+
 (defmacro parsec-many (parser)
-  (let ((res (make-symbol "results")))
+  (let ((res (make-symbol "results"))
+        (error-sym (make-symbol "err")))
     `(let (,res)
-       (parsec-try
-        (while (not (eobp))
-          (push ,parser ,res)))
+       (parsec--if-catch-and-forward 'parsec-failed-at-half
+         (parsec-start
+          (while (not (eobp))
+            (push (parsec-as-single ,parser) ,res))))
        (nreverse ,res))))
 
 (defmacro parsec-many1 (parser)
@@ -244,10 +265,10 @@
     nil))
 
 (defmacro parsec-between (open close parser)
-  `(parsec-save
-    ,open
-    (parsec-return ,parser
-      ,close)))
+  `(parsec-and
+     ,open
+     (parsec-return ,parser
+       ,close)))
 
 (defun parsec-just (x) (cons 'Just x))
 
@@ -261,7 +282,7 @@
 
 (defmacro parsec-make-maybe (&rest body)
   (let ((res (make-symbol "result")))
-    `(let ((,res (parsec-try
+    `(let ((,res (parsec-start
                   ,@body)))
        (if (parsec-msg-p ,res)
            parsec-nothing
@@ -272,7 +293,7 @@
   `(with-temp-buffer
      (insert ,input)
      (goto-char (point-min))
-     (parsec-try
+     (parsec-start
       ,@parsers)))
 
 (provide 'parsec)
