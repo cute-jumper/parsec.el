@@ -178,10 +178,9 @@
 
 (defmacro parsec-protect-atom (parser)
   "This must be used together with `parsec-make-atom'."
-  (let ((error-sym (make-symbol "err")))
-    `(catch 'parsec-success
-       (parsec-throw (catch 'parsec-failed-at-half
-                       (throw 'parsec-success ,parser))))))
+  `(catch 'parsec-success
+     (parsec-throw (catch 'parsec-failed-at-half
+                     (throw 'parsec-success ,parser)))))
 
 (defmacro parsec-make-atom (parser)
   (let ((orig-pt-sym (make-symbol "orig-pt"))
