@@ -92,16 +92,16 @@
              (scheme-parse-string)
              (scheme-parse-number)
              (scheme-parse-quoted)
-             (parsec-and
-               (parsec-ch ?\()
-               (parsec-or
-                (parsec-save (parsec-return (scheme-parse-list)
-                               (parsec-ch ?\))))
-                (parsec-return (scheme-parse-dotted-list)
-                  (parsec-ch ?\)))))))
+             (parsec-between
+              (parsec-ch ?\()
+              (parsec-ch ?\))
+              (parsec-or
+               (parsec-try
+                (scheme-parse-list))
+               (scheme-parse-dotted-list)))))
 
 (defun scheme-read (expr)
-  (parsec-do-parse expr
+  (parsec-with-input expr
     (scheme-parse-expr)))
 
 (scheme-read "25")
@@ -109,6 +109,8 @@
 (scheme-read "(symbol)")
 (scheme-read "(a test)")
 (scheme-read "(a . test)")
+(parsec-with-input  "a . test"
+  (parsec-sepby (scheme-parse-expr) (scheme-spaces)))
 (scheme-read "(a (nested) test)")
 (scheme-read "(a '(quoted (dotted . list)) test)")
 

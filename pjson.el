@@ -117,23 +117,24 @@
               (parsec-re "\\+?\\([0-9]+\\)\\(\\.[0-9]+\\)?\\([Ee][+-]?[0-9]+\\)?"))))
 
 (defun pjson-parse (input)
-  (parsec-do-parse input
+  (parsec-with-input input
     (pjson-object)))
 
-(parsec-do-parse "123"
+(parsec-with-input "123"
   (pjson-number))
-(parsec-do-parse "\"asdf\""
+(parsec-with-input "\"asdf\""
   (pjson-string))
-(parsec-do-parse "false"
+(parsec-with-input "false"
   (pjson-boolean))
-(parsec-do-parse "[1,true,1,\"abc\",[1],null]"
+(parsec-with-input "[1,true,1,\"abc\",[1],null)"
   (pjson-array))
-(parsec-do-parse "{}"
-  (pjson-object))
-(parsec-do-parse "{\"a\" :1, \"b\":2, [{ \"c\":[1,true] }]}"
+(message "%s" (parsec-msg-get (parsec-with-input "fallls"
+                                (pjson-jvalue))))
+(parsec-with-input "{\"a\" :1, \"b\":2, \"c\":[1,true] }"
   (pjson-object))
 
 (pjson-parse  "{\"a\" :1, \"b\":2, [{ \"c\":[1,true] }]}")
+(json-read-from-string  "{\"a\" :1, \"b\":2, [{ \"c\":[1,true] }]}")
 (pjson-parse    "{\"a\" :1, \"b\":2, \"c\":[1,{\"d\":null}]}")
 (json-read-from-string  "{\"a\" :1, \"b\":2, \"c\":[1,{\"d\":null}]}")
 

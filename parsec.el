@@ -280,7 +280,7 @@
            parsec-nothing
          (parsec-just ,res)))))
 
-(defmacro parsec-do-parse (input &rest parsers)
+(defmacro parsec-with-input (input &rest parsers)
   (declare (indent 1))
   `(with-temp-buffer
      (insert ,input)
