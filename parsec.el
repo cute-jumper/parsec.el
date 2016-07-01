@@ -64,20 +64,12 @@
                                  (format "Found \"%s\" -> Expected \"%s\""
                                          found expected))))))))
 
-(defun parsec-ch (ch &rest args)
+(defun parsec-ch (ch)
   (let ((next-char (char-after)))
     (if (and (not (eobp))
              (char-equal next-char ch))
-        (prog1
-            (cond
-             ((memq :nil args) nil)
-             ((memq :beg args)
-              (point))
-             ((memq :end args)
-              (1+ (point)))
-             (t
-              (char-to-string ch)))
-          (forward-char 1))
+        (progn (forward-char 1)
+               (char-to-string ch))
       (parsec-stop :expected (char-to-string ch)
                    :found (parsec-eob-or-char-as-string)))))
 
@@ -85,16 +77,8 @@
   (let ((next-char (char-after)))
     (if (and (not (eobp))
              (funcall pred next-char))
-        (prog1
-            (cond
-             ((memq :nil args) nil)
-             ((memq :beg args)
-              (point))
-             ((memq :end args)
-              (1+ (point)))
-             (t
-              (char-to-string ch)))
-          (forward-char 1))
+        (progn (forward-char 1)
+               (char-to-string ch))
       (parsec-stop :expected (format "%s" pred)
                    :found (parsec-eob-or-char-as-string)))))
 
@@ -103,30 +87,14 @@
     (parsec-stop :expected "`eob'"
                  :found (parsec-eob-or-char-as-string))))
 
-(defun parsec-re (regexp &rest args)
+(defun parsec-re (regexp)
   (if (looking-at regexp)
-      (prog1
-          (cond
-           ((memq :nil args) nil)
-           ((memq :beg args)
-            (match-beginning 0))
-           ((memq :end args)
-            (match-end 0))
-           ((memq :group args)
-            (let ((group
-                   (cl-loop named outer for arg on args
-                            when (eq (car arg) :group) do
-                            (return-from outer (cadr arg)))))
-              (if group
-                  (match-string group)
-                (error "Unexpected regexp :group %s" group))))
-           (t
-            (match-string 0)))
-        (goto-char (match-end 0)))
+      (progn (goto-char (match-end 0))
+             (match-string 0))
     (parsec-stop :expected regexp
                  :found (parsec-eob-or-char-as-string))))
 
-(defsubst parsec-str (str &rest args)
+(defsubst parsec-str (str)
   (parsec-re (regexp-quote str)))
 
 (defsubst parsec-num (num &rest args)
@@ -263,6 +231,27 @@
      ,open
      (parsec-return ,parser
        ,close)))
+
+(defmacro parsec-query (parser &rest args)
+  (let ((orig-pt-sym (make-symbol "orig-pt"))
+        (res-sym (make-symbol "results")))
+    `(let ((,orig-pt-sym (point))
+           (,res-sym ,parser))
+       ,(cond
+         ((memq :beg args) orig-pt-sym)
+         ((memq :end args) '(point))
+         ((memq :nil args) nil)
+         ((and (memq :group args)
+               (consp parser)
+               (eq (car parser) 'parsec-re))
+          (let ((group
+                 (cl-loop named outer for arg on args
+                          when (eq (car arg) :group) do
+                          (cl-return-from outer (cadr arg)))))
+            (if (and group (integerp group))
+                `(match-string ,group)
+              (error "Invalid query :group %s" group))))
+         (t res-sym)))))
 
 (defun parsec-just (x) (cons 'Just x))
 
