@@ -32,11 +32,11 @@
 
 (defvar parsec-last-error-message nil)
 
-(defun parsec-eob-or-char-as-string ()
+(defun parsec-eof-or-char-as-string ()
   (let ((c (char-after)))
     (if c
         (char-to-string c)
-      "`eob'")))
+      "`EOF'")))
 
 (defun parsec-error-new (msg)
   (cons 'parsec-error msg))
@@ -71,14 +71,14 @@
         (progn (forward-char 1)
                (char-to-string ch))
       (parsec-stop :expected (char-to-string ch)
-                   :found (parsec-eob-or-char-as-string)))))
+                   :found (parsec-eof-or-char-as-string)))))
 
 (defun parsec-any-ch ()
   (if (not (eobp))
       (prog1 (char-to-string (char-after))
         (forward-char))
     (parsec-stop :expected "any char"
-                 :found (parsec-eob-or-char-as-string))))
+                 :found (parsec-eof-or-char-as-string))))
 
 (defun parsec-satisfy (pred)
   (let ((next-char (char-after)))
@@ -87,19 +87,19 @@
         (progn (forward-char 1)
                (char-to-string ch))
       (parsec-stop :expected (format "%s" pred)
-                   :found (parsec-eob-or-char-as-string)))))
+                   :found (parsec-eof-or-char-as-string)))))
 
 (defun parsec-eob ()
   (unless (eobp)
-    (parsec-stop :expected "`eob'"
-                 :found (parsec-eob-or-char-as-string))))
+    (parsec-stop :expected "`EOF'"
+                 :found (parsec-eof-or-char-as-string))))
 
 (defun parsec-re (regexp)
   (if (looking-at regexp)
       (progn (goto-char (match-end 0))
              (match-string 0))
     (parsec-stop :expected regexp
-                 :found (parsec-eob-or-char-as-string))))
+                 :found (parsec-eof-or-char-as-string))))
 
 (defsubst parsec-str (str)
   (parsec-re (regexp-quote str)))
@@ -127,12 +127,12 @@
                           (concat "None of the parsers succeeds:\n"
                                   (mapconcat #'identity ,error-str-list-sym "\n"))))
                 do
-                (parsec-protect-atom
-                 (parsec-start
-                  (cl-return-from ,outer-sym
-                    (parsec-eavesdrop-error ,error-sym
-                        (parsec-make-atom (eval ,parser-sym))
-                      (push (parsec-error-str ,error-sym) ,error-str-list-sym)))))))))
+                (parsec-protect-atom parsec-or
+                  (parsec-start
+                   (cl-return-from ,outer-sym
+                     (parsec-eavesdrop-error ,error-sym
+                         (parsec-make-atom parsec-or (eval ,parser-sym))
+                       (push (parsec-error-str ,error-sym) ,error-str-list-sym)))))))))
 
 (defalias 'parsec-and 'progn)
 
@@ -159,20 +159,31 @@
            (parsec-and ,@forms)
          (goto-char ,orig-pt-sym)))))
 
-(defmacro parsec-protect-atom (parser)
-  "This must be used together with `parsec-make-atom'."
-  `(catch 'parsec-success
-     (parsec-throw (catch 'parsec-failed-at-half
-                     (throw 'parsec-success ,parser)))))
+(defsubst parsec--atom-tag (name)
+  (intern (format "parsec-failed-at-half-%s" name)))
 
-(defmacro parsec-make-atom (parser)
+(defmacro parsec-protect-atom (name parser)
+  "This must be used together with `parsec-make-atom'."
+  (declare (indent 1))
+  (let ((tag (parsec--atom-tag name)))
+    `(catch 'parsec-success
+       (parsec-throw (catch ',tag
+                       (throw 'parsec-success ,parser))))))
+
+(defmacro parsec-make-atom (name parser)
   (let ((orig-pt-sym (make-symbol "orig-pt"))
-        (error-sym (make-symbol "err")))
+        (error-sym (make-symbol "err"))
+        (tag (parsec--atom-tag name)))
     `(let ((,orig-pt-sym (point)))
        (parsec-eavesdrop-error ,error-sym
            ,parser
+         (message "equal=%s" (= (point) ,orig-pt-sym))
          (unless (= (point) ,orig-pt-sym)
-           (throw 'parsec-failed-at-half ,error-sym))))))
+           (throw ',tag ,error-sym))))))
+
+(defmacro parsec-continue (&rest forms)
+  `(parsec-eavesdrop-error _
+       (parsec-and ,@forms)))
 
 (defmacro parsec-eavesdrop-error (error-sym parser &rest handler)
   (declare (indent 2))
@@ -186,7 +197,7 @@
   (declare (indent 1))
   `(parsec-eavesdrop-error _
        (parsec-and ,@forms)
-     (parsec-throw (parsec-error-new msg))))
+     (parsec-throw (parsec-error-new ,msg))))
 
 (defmacro parsec-ensure (&rest forms)
   (let ((error-sym (make-symbol "err")))
@@ -200,24 +211,14 @@
     (parsec-with-error-message ,msg
       (parsec-and ,@forms))))
 
-;;; TODO
-(cl-defmacro parsec-until (parser &optional &key skip)
-  `(catch 'done
-     (while (not (eobp))
-       (parsec-start
-        (throw 'done ,parser))
-       ,(if skip
-            `(,skip 1)
-          `(forward-char 1)))))
-
 (defmacro parsec-many (parser)
   (let ((res-sym (make-symbol "results"))
         (error-sym (make-symbol "err")))
     `(let (,res-sym)
-       (parsec-protect-atom
-        (parsec-start
-         (while (not (eobp))
-           (push (parsec-make-atom ,parser) ,res-sym))))
+       (parsec-protect-atom parsec-many
+         (parsec-start
+          (while (not (eobp))
+            (push (parsec-make-atom parsec-many ,parser) ,res-sym))))
        (nreverse ,res-sym))))
 
 (defmacro parsec-many1 (parser)
@@ -231,6 +232,45 @@
 
 (defmacro parsec-many1-as-string (parser)
   `(mapconcat #'identity (parsec-many1 ,parser) ""))
+
+(defmacro parsec-many-till (parser end &optional type)
+  (let ((res-sym (make-symbol "results"))
+        (end-res-sym (make-symbol "end-result")))
+    `(let* (,res-sym
+            (,end-res-sym (catch 'parsec-immediate-stop
+                            (while t
+                              (parsec-or (throw 'parsec-immediate-stop ,end)
+                                         (push ,parser ,res-sym))))))
+       (setq ,res-sym (nreverse ,res-sym))
+       ,(cond
+         ((eq type :both) `(cons ,res-sym ,end-res-sym))
+         ((eq type :end) end-res-sym)
+         (t res-sym)))))
+
+(defmacro parsec-many-till-as-string (parser end &optional type)
+  (let ((res-sym (make-symbol "results")))
+    (cond
+     ((eq type :both)
+      `(let ((,res-sym (parsec-many-till ,parser ,end ,type)))
+         (cons (parsec-list-to-string (car ,res-sym)) (cdr ,res-sym))))
+     (t
+      `(parsec-list-to-string (parsec-many-till ,parser ,end ,type))))))
+
+(defmacro parsec-until (parser &optional type)
+  `(parsec-many-till (parsec-any-ch) ,parser ,type))
+
+(defmacro parsec-until-as-string (parser &optional type)
+  `(parsec-many-till-as-string (parsec-any-ch) ,parser ,type))
+
+(defmacro parsec-not-followed-by (parser)
+  (let ((res-sym (make-symbol "results")))
+    `(catch 'parsec-not-followed-by
+       (let ((,res-sym
+              (catch 'parsec-immediate-stop
+                (throw 'parsec-not-followed-by
+                       (parsec-or (throw 'parsec-immediate-stop (parsec-try ,parser))
+                                  nil)))))
+         (parsec-stop :message (format "Unexpected followed by: %s" ,res-sym))))))
 
 (defmacro parsec-endby (parser end)
   `(parsec-many (parsec-return ,parser
