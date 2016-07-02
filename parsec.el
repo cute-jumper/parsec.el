@@ -73,6 +73,13 @@
       (parsec-stop :expected (char-to-string ch)
                    :found (parsec-eob-or-char-as-string)))))
 
+(defun parsec-any-ch ()
+  (if (not (eobp))
+      (prog1 (char-to-string (char-after))
+        (forward-char))
+    (parsec-stop :expected "any char"
+                 :found (parsec-eob-or-char-as-string))))
+
 (defun parsec-satisfy (pred)
   (let ((next-char (char-after)))
     (if (and (not (eobp))
@@ -130,6 +137,14 @@
 (defalias 'parsec-and 'progn)
 
 (defalias 'parsec-return 'prog1)
+
+(defalias 'parsec-collect 'list)
+
+(defun parsec-collect* (&rest args)
+  (delq nil (apply #'parsec-collect args)))
+
+(defmacro parsec-collect-as-string (&rest forms)
+  `(parsec-list-to-string (parsec-collect ,@forms)))
 
 (defmacro parsec-start (&rest forms)
   `(catch 'parsec-failed ,@forms))
@@ -232,6 +247,24 @@
      (parsec-return ,parser
        ,close)))
 
+(defmacro parsec-count (n parser)
+  (let ((res-sym (make-symbol "results")))
+    `(let (,res-sym)
+       (dotimes (_ ,n ,res-sym)
+         (push ,parser ,res-sym)))))
+
+(defmacro parsec-count-as-string (n parser)
+  `(parsec-list-to-string (parsec-count ,n ,parser)))
+
+(defmacro parsec-option (opt &rest forms)
+  `(parsec-or (parsec-and ,@forms) ,opt))
+
+(defmacro parsec-optional (&rest forms)
+  `(parsec-or (parsec-and ,@forms) nil))
+
+(defmacro parsec-optional* (&rest forms)
+  `(parsec-and (parsec-optional ,@forms) nil))
+
 (defmacro parsec-query (parser &rest args)
   (let ((orig-pt-sym (make-symbol "orig-pt"))
         (res-sym (make-symbol "results")))
@@ -253,9 +286,9 @@
               (error "Invalid query :group %s" group))))
          (t res-sym)))))
 
-(defun parsec-just (x) (cons 'Just x))
+(defsubst parsec-just (x) (cons 'Just x))
 
-(defvar parsec-nothing 'Nothing)
+(defconst parsec-nothing 'Nothing)
 
 (defun parsec-maybe-p (x)
   (or (eq x parsec-nothing)
@@ -263,13 +296,17 @@
        (consp x)
        (eq (car x) 'Just))))
 
-(defmacro parsec-make-maybe (&rest forms)
-  (let ((res (make-symbol "result")))
-    `(let ((,res (parsec-start
-                  ,@forms)))
-       (if (parsec-error-p ,res)
-           parsec-nothing
-         (parsec-just ,res)))))
+(defun parsec-from-just (x)
+  (and (consp x)
+       (eq (car x) 'Just)
+       (cdr x)))
+
+(defmacro parsec-optional-maybe (&rest forms)
+  (let ((res-sym (make-symbol "result")))
+    `(let ((,res-sym (parsec-optional ,@forms)))
+       (if ,res-sym
+           (parsec-just ,res-sym)
+         parsec-nothing))))
 
 (defmacro parsec-with-input (input &rest parsers)
   (declare (indent 1))
