@@ -181,10 +181,6 @@
          (unless (= (point) ,orig-pt-sym)
            (throw ',tag ,error-sym))))))
 
-(defmacro parsec-continue (&rest forms)
-  `(parsec-eavesdrop-error _
-       (parsec-and ,@forms)))
-
 (defmacro parsec-eavesdrop-error (error-sym parser &rest handler)
   (declare (indent 2))
   `(catch 'parsec-success
