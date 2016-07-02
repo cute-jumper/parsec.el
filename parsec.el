@@ -89,10 +89,21 @@
       (parsec-stop :expected (format "%s" pred)
                    :found (parsec-eof-or-char-as-string)))))
 
+(defun parsec-newline ()
+  (parsec-ch ?\n))
+
+(defun parsec-crlf ()
+  (parsec-and (parsec-ch ?\r) (parsec-ch ?\n)))
+
+(defun parsec-eol ()
+  (parsec-or (parsec-newline) (parsec-crlf)))
+
 (defun parsec-eob ()
   (unless (eobp)
     (parsec-stop :expected "`EOF'"
                  :found (parsec-eof-or-char-as-string))))
+
+(defalias 'parsec-eof 'parsec-eob)
 
 (defun parsec-re (regexp)
   (if (looking-at regexp)
