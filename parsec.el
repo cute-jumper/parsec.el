@@ -85,7 +85,7 @@
     (if (and (not (eobp))
              (funcall pred next-char))
         (progn (forward-char 1)
-               (char-to-string ch))
+               (char-to-string next-char))
       (parsec-stop :expected (format "%s" pred)
                    :found (parsec-eof-or-char-as-string)))))
 
@@ -129,21 +129,23 @@
         (parser-sym (make-symbol "parser"))
         (error-sym (make-symbol "err"))
         (error-str-list-sym (make-symbol "err-list")))
-    `(let (,error-str-list-sym)
-       (cl-loop named ,outer-sym for ,parser-sym in ',parsers
-                finally (parsec-stop
-                         :message
-                         (replace-regexp-in-string
-                          "\n" "\n\t"
-                          (concat "None of the parsers succeeds:\n"
-                                  (mapconcat #'identity ,error-str-list-sym "\n"))))
-                do
-                (parsec-protect-atom parsec-or
-                  (parsec-start
-                   (cl-return-from ,outer-sym
-                     (parsec-eavesdrop-error ,error-sym
-                         (parsec-make-atom parsec-or (eval ,parser-sym))
-                       (push (parsec-error-str ,error-sym) ,error-str-list-sym)))))))))
+    `(let (,error-str-list-sym ,parser-sym ,error-sym)
+       (catch 'parsec-parsec-or
+         ,@(mapcar
+            (lambda (parser)
+              `(parsec-protect-atom parsec-or
+                 (parsec-start
+                  (throw 'parsec-parsec-or
+                         (parsec-eavesdrop-error ,error-sym
+                             (parsec-make-atom parsec-or ,parser)
+                           (push (parsec-error-str ,error-sym) ,error-str-list-sym))))))
+            parsers)
+         (parsec-stop
+          :message
+          (replace-regexp-in-string
+           "\n" "\n\t"
+           (concat "None of the parsers succeeds:\n"
+                   (mapconcat #'identity ,error-str-list-sym "\n"))))))))
 
 (defalias 'parsec-and 'progn)
 
@@ -188,7 +190,6 @@
     `(let ((,orig-pt-sym (point)))
        (parsec-eavesdrop-error ,error-sym
            ,parser
-         (message "equal=%s" (= (point) ,orig-pt-sym))
          (unless (= (point) ,orig-pt-sym)
            (throw ',tag ,error-sym))))))
 
@@ -232,7 +233,9 @@
   `(cons ,parser (parsec-many ,parser)))
 
 (defsubst parsec-list-to-string (l)
-  (mapconcat #'identity l ""))
+  (if (stringp l)
+      l
+    (mapconcat #'identity l "")))
 
 (defmacro parsec-many-as-string (parser)
   `(mapconcat #'identity (parsec-many ,parser) ""))
@@ -243,11 +246,12 @@
 (defmacro parsec-many-till (parser end &optional type)
   (let ((res-sym (make-symbol "results"))
         (end-res-sym (make-symbol "end-result")))
-    `(let* (,res-sym
-            (,end-res-sym (catch 'parsec-immediate-stop
-                            (while t
-                              (parsec-or (throw 'parsec-immediate-stop ,end)
-                                         (push ,parser ,res-sym))))))
+    `(let ((,res-sym nil) ,end-res-sym)
+       (setq ,end-res-sym
+             (catch 'parsec-immediate-stop
+               (while t
+                 (parsec-or (throw 'parsec-immediate-stop ,end)
+                            (push ,parser ,res-sym)))))
        (setq ,res-sym (nreverse ,res-sym))
        ,(cond
          ((eq type :both) `(cons ,res-sym ,end-res-sym))
@@ -303,8 +307,8 @@
 (defmacro parsec-count-as-string (n parser)
   `(parsec-list-to-string (parsec-count ,n ,parser)))
 
-(defmacro parsec-option (opt &rest forms)
-  `(parsec-or (parsec-and ,@forms) ,opt))
+(defmacro parsec-option (opt parser)
+  `(parsec-or ,parser ,opt))
 
 (defmacro parsec-optional (&rest forms)
   `(parsec-or (parsec-and ,@forms) nil))
