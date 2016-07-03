@@ -20,7 +20,371 @@
 
 ;;; Commentary:
 
-;;
+;;                              _____________
+
+;;                                PARSEC.EL
+
+;;                               Junpeng Qiu
+;;                              _____________
+
+
+;; Table of Contents
+;; _________________
+
+;; 1 Overview
+;; 2 Parsing Functions & Parser Combinators
+;; .. 2.1 Basic Parsing Functions
+;; .. 2.2 Parser Combinators
+;; .. 2.3 Parser Utilities
+;; .. 2.4 Variants that Return a String
+;; 3 Code Examples
+;; 4 Parser Examples
+;; 5 Change the Return Values using `parsec-query'
+;; 6 Error Messages
+;; 7 Acknowledgement
+
+
+;; A parser combinator library for Emacs Lisp similar to Haskell's Parsec
+;; library.
+
+
+;; 1 Overview
+;; ==========
+
+;;   This work is based on [John Wiegley]'s [emacs-pl]. The original
+;;   [emacs-pl] is awesome, but I found following problems when I tried to
+;;   use it:
+
+;;   - It only contains a very limited set of combinators
+;;   - Some of its functions (combinators) have different behaviors than
+;;     their Haskell counterparts
+;;   - It can't show error messages when parsing fails
+
+;;   So I decided to make a new library on top of it. This library,
+;;   however, contains most of the parser combinators in
+;;   `Text.Parsec.Combinator', which should be enough in most use cases. Of
+;;   course more combinators can be added if necessary! Most of the parser
+;;   combinators have the same behavior as their Haskell counterparts.
+;;   `parsec.el' also comes with a simple error handling mechanism so that
+;;   it can display an error message showing how the parser fails.
+
+;;   So we can
+
+;;   - use these parser combinators to write parsers easily from scratch in
+;;     Emacs Lisp like what we can do in Haskell
+;;   - port existing Haskell program using Parsec to its equivalent Emacs
+;;     Lisp program easily
+
+
+;; [John Wiegley] https://github.com/jwiegley/
+
+;; [emacs-pl] https://github.com/jwiegley/emacs-pl
+
+
+;; 2 Parsing Functions & Parser Combinators
+;; ========================================
+
+;;   We compare the functions and macros defined in this library with their
+;;   Haskell counterparts, assuming you're already familiar with Haskell's
+;;   Parsec. If you don't have any experience with parser combinators, look
+;;   at the docstrings of these functions and macros and try them to see
+;;   the results! They are really easy to learn and use!
+
+
+;; 2.1 Basic Parsing Functions
+;; ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+;;   These parsing functions are used as the basic building block for a
+;;   parser. By default, their return value is a string.
+
+;;    parsec.el               Haskell's Parsec  Usage
+;;   -------------------------------------------------------------------------------------------------
+;;    parsec-ch               char              parse a character
+;;    parsec-any-ch           anyChar           parse an arbitrary character
+;;    parsec-satisfy          satisfy           parse a character satisfying a predicate
+;;    parsec-newline          newline           parse '\n'
+;;    parsec-crlf             crlf              parse '\r\n'
+;;    parsec-eol              eol               parse newline or CRLF
+;;    parsec-eof, parsec-eob  eof               parse end of file
+;;    parsec-eol-or-eof       *N/A*             parse EOL or EOL
+;;    parsec-re               *N/A*             parse using a regular expression
+;;    parsec-one-of           oneOf             parse one of the characters
+;;    parsec-none-of          noneOf            parse any character other than the supplied ones
+;;    parsec-str              *N/A*             parse a string but consume input only when successful
+;;    parsec-string           string            parse a string and consume input for partial matches
+;;    parsec-num              *N/A*             parse a number
+;;    parsec-letter           letter            parse a letter
+;;    parsec-digit            digit             parse a digit
+
+;;   Note:
+;;   - `parsec-str' and `parsec-string' are different. `parsec-string'
+;;     behaves the same as `string' in Haskell, and `parsec-str' is more
+;;     like combining `string' and `try' in Haskell. Personally I found
+;;     `parsec-str' easier to use because `parsec-str' is "atomic", which
+;;     is similar to `parsec-ch'.
+;;   - Use the power of regular expressions provided by `parsec-re' and
+;;     simplify the parser!
+
+
+;; 2.2 Parser Combinators
+;; ~~~~~~~~~~~~~~~~~~~~~~
+
+;;   These combinators can be used to combine different parsers.
+
+;;    parsec.el                  Haskell's Parsec  Usage
+;;   -----------------------------------------------------------------------------------------------------------
+;;    parsec-or                  choice            try the parsers until one succeeds
+;;    parsec-try                 try               try parser and consume no input when an error occurs
+;;    parsec-with-error-message  <?> (similar)     use the new error message when an error occurs
+;;    parsec-many                many              apply the parser zero or more times
+;;    parsec-many1               many1             apply the parser one or more times
+;;    parsec-many-till           manyTill          apply parser zero or more times until end succeeds
+;;    parsec-until               *N/A*             parse until end succeeds
+;;    parsec-not-followed-by     notFollowedBy     succeed when the parser fails
+;;    parsec-endby               endby             apply parser zero or more times, separated and ended by end
+;;    parsec-sepby               sepby             apply parser zero or more times, separated by sep
+;;    parsec-between             between           apply parser between open and close
+;;    parsec-count               count             apply parser n times
+;;    parsec-option              option            apply parser, if it fails, return opt
+;;    parsec-optional            *N/A*             apply parser zero or one time and return the result
+;;    parsec-optional*           optional          apply parser zero or one time and discard the result
+;;    parsec-optional-maybe      optionMaybe       apply parser zero or one time and return the result in Maybe
+
+;;   Note:
+;;   - `parsec-or' can also be used to replace `<|>'.
+;;   - `parsec-with-error-message' is slightly different from `<?>'. It
+;;     will replace the error message even when the input is consumed.
+;;   - By default, `parsec-many-till' behaves as Haskell's `manyTill'.
+;;     However, `parsec-many-till' and `parsec-until' can accept an
+;;     optional argument to specify which part(s) to be returned. You can
+;;     use `:both' or `:end' as the optional argument to change the default
+;;     behavior. See the docstrings for more information.
+
+
+;; 2.3 Parser Utilities
+;; ~~~~~~~~~~~~~~~~~~~~
+
+;;   These utilities can be used together with parser combinators to build
+;;   a parser and ease the translation process if you're trying to port an
+;;   existing Haskell program.
+
+;;    parsec.el                         Haskell's Parsec  Usage
+;;   -------------------------------------------------------------------------------------------------------------
+;;    parsec-and                        do block          try all parsers and return the last result
+;;    parsec-return                     do block          try all parsers and return the first result
+;;    parsec-ensure                     *N/A*             quit the parsing when an error occurs
+;;    parsec-ensure-with-error-message  *N/A*             quit the parsing when an error occurs with new message
+;;    parsec-collect                    sequence          try all parsers and collect the results into a list
+;;    parsec-collect*                   *N/A*             try all parsers and collect non-nil results into a list
+;;    parsec-start                      parse             entry point
+;;    parsec-parse                      parse             entry point (same as parsec-start)
+;;    parsec-with-input                 parse             perform parsers on input
+;;    parsec-from-maybe                 fromMaybe         retrieve value from Maybe
+;;    parsec-maybe-p                    *N/A*             is a Maybe value or not
+;;    parsec-query                      *N/A*             change the parser's return value
+
+
+;; 2.4 Variants that Return a String
+;; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+;;   By default, the macros/functions that return multiple values will put
+;;   the values into a list. These macros/functions are:
+;;   - `parsec-many'
+;;   - `parsec-many1'
+;;   - `parsec-many-till'
+;;   - `parsec-until'
+;;   - `parsec-count'
+;;   - `parsec-collect' and `parsec-collect*'
+
+;;   They all have a variant that returns a string by concatenating the
+;;   results in the list:
+;;   - `parsec-many-as-string'
+;;   - `parsec-many1-as-string'
+;;   - `parsec-many-till-as-string'
+;;   - `parsec-until-as-string'
+;;   - `parsec-collect-as-string'
+
+;;   These variants accept the same arguments. The only difference is the
+;;   return value. In most cases I found myself using these variants
+;;   instead of the original versions that return a list.
+
+
+;; 3 Code Examples
+;; ===============
+
+;;   Some very simple examples are given here. You can see many code
+;;   examples in the test files in this GitHub repo.
+
+;;   The following code extract the "hello" from the comment:
+;;   ,----
+;;   | (parsec-with-input "/* hello */"
+;;   |   (parsec-string "/*")
+;;   |   (parsec-many-till-as-string (parsec-any-ch)
+;;   |                               (parsec-try
+;;   |                                (parsec-string "*/"))))
+;;   `----
+
+;;   The following Haskell program does a similar thing:
+;;   ,----
+;;   | import           Text.Parsec
+;;   |
+;;   | main :: IO ()
+;;   | main = print $ parse p "" "/* hello */"
+;;   |   where
+;;   |     p = do string "/*"
+;;   |            manyTill anyChar (try (string "*/"))
+;;   `----
+
+;;   The following code returns the "aeiou" before "end":
+;;   ,----
+;;   | (parsec-with-input "if aeiou end"
+;;   |   (parsec-str "if ")
+;;   |   (parsec-return
+;;   |       (parsec-many-as-string (parsec-one-of ?a ?e ?i ?o ?u))
+;;   |     (parsec-str " end")))
+;;   `----
+
+
+;; 4 Parser Examples
+;; =================
+
+;;   I translate some Haskell Parsec examples into Emacs Lisp using
+;;   `parsec.el'. You can see from these examples that it is very easy to
+;;   write parsers using `parsec.el', and if you know haskell, you can see
+;;   that basically I just translate the Haskell into Emacs Lisp one by one
+;;   because most of them are just the same!
+
+;;   You can find five examples under the `examples/' directory.
+
+;;   Three of the examples are taken from the chapter [Using Parsec] in the
+;;   book of [Real World Haskell]:
+;;   - `simple-csv-parser.el': a simple csv parser with no support for
+;;     quoted cells
+;;   - `full-csv-parser.el': a full csv parser
+;;   - `url-str-parser.el': parser parameters in URL
+
+;;   `pjson.el' is a translation of Haskell's [json library using Parsec].
+
+;;   `scheme.el' is a much simplified Scheme parser based on [Write
+;;   Yourself a Scheme in 48 Hours].
+
+;;   They're really simple but you can see how this library works!
+
+
+;; [Using Parsec] http://book.realworldhaskell.org/read/using-parsec.html
+
+;; [Real World Haskell] http://book.realworldhaskell.org/read/
+
+;; [json library using Parsec]
+;; https://hackage.haskell.org/package/json-0.9.1/docs/src/Text-JSON-Parsec.html
+
+;; [Write Yourself a Scheme in 48 Hours]
+;; https://en.wikibooks.org/wiki/Write_Yourself_a_Scheme_in_48_Hours/
+
+
+;; 5 Change the Return Values using `parsec-query'
+;; ===============================================
+
+;;   Parsing has side-effects such as forwarding the current point. In the
+;;   original [emacs-pl], you can specify some optional arguments to some
+;;   parsing functions (`pl-ch', `pl-re' etc.) to change the return values.
+;;   In `parsec.el', these functions don't have such a behavior. Instead,
+;;   we provide a unified interface `parsec-query', which accepts any
+;;   parser, and changes the return value of the parser.
+
+;;   You can speicify following arguments:
+;;   ,----
+;;   | :beg      --> return the point before applying the PARSER
+;;   | :end      --> return the point after applying the PARSER
+;;   | :nil      --> return nil
+;;   | :groups N --> return Nth group for `parsec-re'."
+;;   `----
+
+;;   So instead of returning "b" as the result, the following code returns
+;;   2:
+;;   ,----
+;;   | (parsec-with-input "ab"
+;;   |   (parsec-ch ?a)
+;;   |   (parsec-query (parsec-ch ?b) :beg))
+;;   `----
+
+;;   Returning a point means that you can also incorporate `parsec.el' with
+;;   Emacs Lisp functions that can operate on points/regions, such as
+;;   `goto-char' and `kill-region'.
+
+;;   `:group' can be specified when using `parsec-re':
+;;   ,----
+;;   | (parsec-with-input "ab"
+;;   |   (parsec-query (parsec-re "\\(a\\)\\(b\\)") :group 2))
+;;   `----
+
+;;   The above code will return "b" instead of "ab".
+
+
+;; [emacs-pl] https://github.com/jwiegley/emacs-pl
+
+
+;; 6 Error Messages
+;; ================
+
+;;   `parsec.el' implements a simple error handling mechanism. When an
+;;   error happens, it will show how the parser fails.
+
+;;   For example, the following code fails:
+;;   ,----
+;;   | (parsec-with-input "aac"
+;;   |   (parsec-count 2 (parsec-ch ?a))
+;;   |   (parsec-ch ?b))
+;;   `----
+
+;;   The return value is:
+;;   ,----
+;;   | (parsec-error . "Found \"c\" -> Expected \"b\"")
+;;   `----
+
+;;   This also works when parser combinators fail:
+;;   ,----
+;;   | (parsec-with-input "a"
+;;   |   (parsec-or (parsec-ch ?b)
+;;   |              (parsec-ch ?c)))
+;;   `----
+
+;;   The return value is:
+;;   ,----
+;;   | (parsec-error . "None of the parsers succeeds:
+;;   |       Found \"a\" -> Expected \"c\"
+;;   |       Found \"a\" -> Expected \"b\"")
+;;   `----
+
+;;   If an error occurs, the return value is a cons cell that contains the
+;;   error message in its `cdr'. Compared to Haskell's Parsec, it's really
+;;   simple, but at least the error message could tell us some information.
+;;   Yeah, not perfect but usable.
+
+;;   To test whether a parser returns an error, use `parsec-error-p'. If it
+;;   returns an error, you can use `parsec-error-str' to retrieve the error
+;;   message as a string.
+
+;;   You can decide what to do based on the return value of a parser:
+;;   ,----
+;;   | (let ((res (parsec-with-input "hello"
+;;   |              (parsec-str "world"))))
+;;   |   (if (parsec-error-p res)
+;;   |       (message "Parser failed:\n%s" (parsec-error-str res))
+;;   |     (message "Parser succeeded by returning %s" res)))
+;;   `----
+
+
+;; 7 Acknowledgement
+;; =================
+
+;;   - Daan Leijen for Haskell's Parsec
+;;   - [John Wiegley] for [emacs-pl]
+
+
+;; [John Wiegley] https://github.com/jwiegley/
+
+;; [emacs-pl] https://github.com/jwiegley/emacs-pl
 
 ;;; Code:
 
