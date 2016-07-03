@@ -1,4 +1,4 @@
-;;; parsec.el --- Emacs Lisp fork of Haskell's Parsec library  -*- lexical-binding: t; -*-
+;;; parsec.el --- Parser combinator library  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2016  Junpeng Qiu
 
@@ -27,7 +27,7 @@
 (require 'cl-lib)
 
 (defgroup parsec nil
-  "Combinator parsing library for Emacs, similar to Haskell's Parsec"
+  "Parser combinators for Emacs Lisp"
   :group 'development)
 
 (defvar parsec-last-error-message nil)
