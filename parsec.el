@@ -495,7 +495,7 @@ The args can be in the following forms:
        (consp x)
        (eq (car x) 'Just))))
 
-(defun parsec-from-just (x)
+(defun parsec-from-maybe (x)
   "Retrieve the value from Maybe monad X.
 If X is `(Just . p)', return p. Otherwise return nil."
   (and (consp x)

@@ -427,7 +427,7 @@
     (parsec-with-input "abcdef"
       (parsec-collect-as-string
        (parsec-str "abc")
-       (parsec-from-just (parsec-optional-maybe (parsec-ch ?-)))
+       (parsec-from-maybe (parsec-optional-maybe (parsec-ch ?-)))
        (parsec-str "def")))
     "abcdef"))
   (should
@@ -435,7 +435,7 @@
     (parsec-with-input "abc-def"
       (parsec-collect-as-string
        (parsec-str "abc")
-       (parsec-from-just (parsec-optional-maybe (parsec-ch ?-)))
+       (parsec-from-maybe (parsec-optional-maybe (parsec-ch ?-)))
        (parsec-str "def")))
     "abc-def")))
 
