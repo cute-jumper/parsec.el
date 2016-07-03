@@ -220,6 +220,13 @@ So we can
   Lisp functions that can operate on points/regions, such as =goto-char= and
   =kill-region=.
 
+  =:group= can be specified when using =parsec-re=:
+  #+BEGIN_SRC elisp
+  (parsec-with-input "ab"
+    (parsec-query (parsec-re "\\(a\\)\\(b\\)") :group 2))
+  #+END_SRC
+
+  The above code will return "b" instead of "ab".
 * Error Messages
 
   =parsec.el= implements a simple error handling mechanism. When an error
