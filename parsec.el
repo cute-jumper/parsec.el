@@ -38,10 +38,11 @@
 ;; .. 2.3 Parser Utilities
 ;; .. 2.4 Variants that Return a String
 ;; 3 Code Examples
-;; 4 Parser Examples
-;; 5 Change the Return Values using `parsec-query'
-;; 6 Error Messages
-;; 7 Acknowledgement
+;; 4 Write a Parser: a Simple CSV Parser
+;; 5 More Parser Examples
+;; 6 Change the Return Values using `parsec-query'
+;; 7 Error Messages
+;; 8 Acknowledgement
 
 
 ;; A parser combinator library for Emacs Lisp similar to Haskell's Parsec
@@ -95,7 +96,7 @@
 ;; ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ;;   These parsing functions are used as the basic building block for a
-;;   parser. By default, their return value is a string.
+;;   parser. By default, their return value is a *string*.
 
 ;;    parsec.el               Haskell's Parsec  Usage
 ;;   -------------------------------------------------------------------------------------------------
@@ -245,8 +246,105 @@
 ;;   `----
 
 
-;; 4 Parser Examples
-;; =================
+;; 4 Write a Parser: a Simple CSV Parser
+;; =====================================
+
+;;   You can find the code in `examples/simple-csv-parser.el'. The code is
+;;   based on the Haskell code in [Using Parsec].
+
+;;   An end-of-line should a string `\n'. We use `(parsec-str "\n")' to
+;;   parse it (Note that since `\n' is also one character, `(parsec-ch
+;;   ?\n)' also works). Some files may not contain a newline at the end,
+;;   but we can view end-of-file as the end-of-line for the last line, and
+;;   use `parsec-eof' (or `parsec-eob') to parse the end-of-file. We use
+;;   `parsec-or' to combine these two combinators:
+;;   ,----
+;;   | (defun s-csv-eol ()
+;;   |   (parsec-or (parsec-str "\n")
+;;   |              (parsec-eof)))
+;;   `----
+
+;;   A CSV file contains many lines and ends with an end-of-file. Use
+;;   `parsec-return' to return the result of the first parser as the
+;;   result.
+;;   ,----
+;;   | (defun s-csv-file ()
+;;   |   (parsec-return (parsec-many (s-csv-line))
+;;   |     (parsec-eof)))
+;;   `----
+
+;;   A CSV line contains many CSV cells and ends with an end-of-line, and
+;;   we should return the cells as the results:
+;;   ,----
+;;   | (defun s-csv-line ()
+;;   |   (parsec-return (s-csv-cells)
+;;   |     (s-csv-eol)))
+;;   `----
+
+;;   CSV cells is a list, containing the first cell and the remaining
+;;   cells:
+;;   ,----
+;;   | (defun s-csv-cells ()
+;;   |   (cons (s-csv-cell-content) (s-csv-remaining-cells)))
+;;   `----
+
+;;   A CSV cell consists any character that is not =,= or `\n', and we use
+;;   the `parsec-many-as-string' variant to return the whole content as a
+;;   string instead of a list of single-character strings:
+;;   ,----
+;;   | (defun s-csv-cell-content ()
+;;   |   (parsec-many-as-string (parsec-none-of ?, ?\n)))
+;;   `----
+
+;;   For the remaining cells: if followed by a comma =,=, we try to parse
+;;   more csv cells. Otherwise, we should return the `nil':
+;;   ,----
+;;   | (defun s-csv-remaining-cells ()
+;;   |   (parsec-or (parsec-and (parsec-ch ?,) (s-csv-cells)) nil))
+;;   `----
+
+;;   OK. Our parser is almost done. To begin parsing the content in buffer
+;;   `foo', you need to wrap the parser inside `parsec-start' (or
+;;   `parsec-parse'):
+;;   ,----
+;;   | (with-current-buffer "foo"
+;;   |   (goto-char (point-min))
+;;   |   (parsec-parse
+;;   |    (s-csv-file)))
+;;   `----
+
+;;   If you want to parse a string instead, we provide a simple wrapper
+;;   macro `parsec-with-input', and you feed a string as the input and put
+;;   arbitraty parsers inside the macro body. `parsec-start' or
+;;   `parsec-parse' is not needed.
+;;   ,----
+;;   | (parsec-with-input "a1,b1,c1\na2,b2,c2"
+;;   |   (s-csv-file))
+;;   `----
+
+;;   The above code returns:
+;;   ,----
+;;   | (("a1" "b1" "c1") ("a2" "b2" "c2"))
+;;   `----
+
+;;   Note that if we replace `parsec-many-as-string' with `parsec-many' in
+;;   `s-csv-cell-content':
+;;   ,----
+;;   | (defun s-csv-cell-content ()
+;;   |   (parsec-many (parsec-none-of ?, ?\n)))
+;;   `----
+
+;;   The result would be:
+;;   ,----
+;;   | ((("a" "1") ("b" "1") ("c" "1")) (("a" "2") ("b" "2") ("c" "2")))
+;;   `----
+
+
+;; [Using Parsec] http://book.realworldhaskell.org/read/using-parsec.html
+
+
+;; 5 More Parser Examples
+;; ======================
 
 ;;   I translate some Haskell Parsec examples into Emacs Lisp using
 ;;   `parsec.el'. You can see from these examples that it is very easy to
@@ -259,7 +357,7 @@
 ;;   Three of the examples are taken from the chapter [Using Parsec] in the
 ;;   book of [Real World Haskell]:
 ;;   - `simple-csv-parser.el': a simple csv parser with no support for
-;;     quoted cells
+;;     quoted cells, as explained in previous section.
 ;;   - `full-csv-parser.el': a full csv parser
 ;;   - `url-str-parser.el': parser parameters in URL
 
@@ -282,7 +380,7 @@
 ;; https://en.wikibooks.org/wiki/Write_Yourself_a_Scheme_in_48_Hours/
 
 
-;; 5 Change the Return Values using `parsec-query'
+;; 6 Change the Return Values using `parsec-query'
 ;; ===============================================
 
 ;;   Parsing has side-effects such as forwarding the current point. In the
@@ -324,7 +422,7 @@
 ;; [emacs-pl] https://github.com/jwiegley/emacs-pl
 
 
-;; 6 Error Messages
+;; 7 Error Messages
 ;; ================
 
 ;;   `parsec.el' implements a simple error handling mechanism. When an
@@ -375,7 +473,7 @@
 ;;   `----
 
 
-;; 7 Acknowledgement
+;; 8 Acknowledgement
 ;; =================
 
 ;;   - Daan Leijen for Haskell's Parsec
