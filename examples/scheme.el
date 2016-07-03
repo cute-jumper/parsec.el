@@ -53,7 +53,7 @@
 
 (defun scheme-parse-string ()
   (parsec-and (parsec-ch ?\")
-              (parsec-return (parsec-many-as-string (parsec-re "[^\"]"))
+              (parsec-return (parsec-many-as-string (parsec-none-of ?\"))
                 (parsec-ch ?\"))))
 
 (defun scheme-parse-atom ()
@@ -103,16 +103,6 @@
 (defun scheme-read (expr)
   (parsec-with-input expr
     (scheme-parse-expr)))
-
-(scheme-read "25")
-(scheme-read "\"This is a string\"")
-(scheme-read "(symbol)")
-(scheme-read "(a test)")
-(scheme-read "(a . test)")
-(parsec-with-input  "a . test"
-  (parsec-sepby (scheme-parse-expr) (scheme-spaces)))
-(scheme-read "(a (nested) test)")
-(scheme-read "(a '(quoted (dotted . list)) test)")
 
 (provide 'scheme)
 ;;; scheme.el ends here
