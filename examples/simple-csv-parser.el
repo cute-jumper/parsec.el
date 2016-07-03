@@ -24,6 +24,8 @@
 
 ;;; Code:
 
+(require 'parsec)
+
 (defun s-csv-file ()
   (parsec-many (s-csv-line)))
 
@@ -45,12 +47,8 @@
   (parsec-or (parsec-and (parsec-ch ?,) (s-csv-cells)) nil))
 
 (defun s-parse-csv (input)
-  (with-temp-buffer
-    (insert input)
-    (goto-char (point-min))
+  (parsec-with-input input
     (s-csv-file)))
-
-(s-parse-csv "a1s,b,d,e,f")
 
 (provide 'simple-csv-parser)
 ;;; simple-csv-parser.el ends here
