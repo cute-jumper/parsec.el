@@ -25,7 +25,7 @@
 ;;; Code:
 
 (defun csv-file ()
-  (parsec-ensure
+  (parsec-start
    (parsec-return (parsec-endby (csv-line) (csv-eol))
      (parsec-eob))))
 
@@ -33,12 +33,13 @@
   (parsec-sepby (csv-cell) (parsec-ch ?,)))
 
 (defun csv-cell ()
-  (parsec-or (csv-quoted-cell) (parsec-many-as-string (parsec-re "[^,\n\r]"))))
+  (parsec-or (csv-quoted-cell) (parsec-many-as-string
+                                (parsec-none-of ?, ?\r ?\n))))
 
 (defun csv-quoted-cell ()
   (parsec-and (parsec-ch ?\")
               (parsec-return (parsec-many-as-string (csv-quoted-char))
-                (parsec-ensure (parsec-ch ?\")))))
+                (parsec-ch ?\"))))
 
 (defun csv-quoted-char ()
   (parsec-or (parsec-re "[^\"]")
@@ -53,15 +54,8 @@
              (parsec-eob)))
 
 (defun parse-csv (input)
-  (with-temp-buffer
-    (insert input)
-    (goto-char (point-min))
+  (parsec-with-input input
     (csv-file)))
-
-(parse-csv "\"a,1,s\"s,b,\r\nd,e,f")
-(parse-csv "\"e\"\",f")
-(parse-csv "\"a,1,\r\n")
-(parse-csv "\"a,1,\"\",b,\r\nd,,f")
 
 (provide 'full-csv-parser)
 ;;; full-csv-parser.el ends here

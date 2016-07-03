@@ -41,7 +41,7 @@
   (cons (s-csv-cell-content) (s-csv-remaining-cells)))
 
 (defun s-csv-cell-content ()
-  (parsec-many-as-string (parsec-re "[^,\n]")))
+  (parsec-many-as-string (parsec-none-of ?, ?\n)))
 
 (defun s-csv-remaining-cells ()
   (parsec-or (parsec-and (parsec-ch ?,) (s-csv-cells)) nil))
