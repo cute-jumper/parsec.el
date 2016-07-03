@@ -36,7 +36,7 @@ So we can
 
 ** Basic Parsing Functions
    These parsing functions are used as the basic building block for a parser. By
-   default, their return value is a string.
+   default, their return value is a *string*.
 
   | parsec.el              | Haskell's Parsec | Usage                                                 |
   |------------------------+------------------+-------------------------------------------------------|
@@ -172,7 +172,94 @@ So we can
       (parsec-str " end")))
   #+END_SRC
 
-* Parser Examples
+* Write a Parser: a Simple CSV Parser
+  You can find the code in =examples/simple-csv-parser.el=. The code is based
+  on the Haskell code in [[http://book.realworldhaskell.org/read/using-parsec.html][Using Parsec]].
+
+  An end-of-line should a string =\n=. We use =(parsec-str "\n")= to parse it
+  (Note that since =\n= is also one character, =(parsec-ch ?\n)= also works).
+  Some files may not contain a newline at the end, but we can view end-of-file
+  as the end-of-line for the last line, and use =parsec-eof= (or =parsec-eob=)
+  to parse the end-of-file. We use =parsec-or= to combine these two
+  combinators:
+  #+BEGIN_SRC elisp
+  (defun s-csv-eol ()
+    (parsec-or (parsec-str "\n")
+               (parsec-eof)))
+  #+END_SRC
+
+  A CSV file contains many lines and ends with an end-of-file. Use
+  =parsec-return= to return the result of the first parser as the result.
+  #+BEGIN_SRC elisp
+  (defun s-csv-file ()
+    (parsec-return (parsec-many (s-csv-line))
+      (parsec-eof)))
+  #+END_SRC
+
+  A CSV line contains many CSV cells and ends with an end-of-line, and we
+  should return the cells as the results:
+  #+BEGIN_SRC elisp
+  (defun s-csv-line ()
+    (parsec-return (s-csv-cells)
+      (s-csv-eol)))
+  #+END_SRC
+
+  CSV cells is a list, containing the first cell and the remaining cells:
+  #+BEGIN_SRC elisp
+  (defun s-csv-cells ()
+    (cons (s-csv-cell-content) (s-csv-remaining-cells)))
+  #+END_SRC
+
+  A CSV cell consists any character that is not =,= or =\n=, and we use the
+  =parsec-many-as-string= variant to return the whole content as a string
+  instead of a list of single-character strings:
+  #+BEGIN_SRC elisp
+  (defun s-csv-cell-content ()
+    (parsec-many-as-string (parsec-none-of ?, ?\n)))
+  #+END_SRC
+
+  For the remaining cells: if followed by a comma =,=, we try to parse more csv
+  cells. Otherwise, we should return the =nil=:
+  #+BEGIN_SRC elisp
+  (defun s-csv-remaining-cells ()
+    (parsec-or (parsec-and (parsec-ch ?,) (s-csv-cells)) nil))
+  #+END_SRC
+
+  OK. Our parser is almost done. To begin parsing the content in buffer =foo=,
+  you need to wrap the parser inside =parsec-start= (or =parsec-parse=):
+  #+BEGIN_SRC elisp
+  (with-current-buffer "foo"
+    (goto-char (point-min))
+    (parsec-parse
+     (s-csv-file)))
+  #+END_SRC
+
+  If you want to parse a string instead, we provide a simple wrapper macro
+  =parsec-with-input=, and you feed a string as the input and put arbitraty
+  parsers inside the macro body. =parsec-start= or =parsec-parse= is not needed.
+  #+BEGIN_SRC elisp
+  (parsec-with-input "a1,b1,c1\na2,b2,c2"
+    (s-csv-file))
+  #+END_SRC
+
+  The above code returns:
+  #+BEGIN_SRC elisp
+  (("a1" "b1" "c1") ("a2" "b2" "c2"))
+  #+END_SRC
+
+  Note that if we replace =parsec-many-as-string= with =parsec-many= in
+  =s-csv-cell-content=:
+  #+BEGIN_SRC elisp
+  (defun s-csv-cell-content ()
+    (parsec-many (parsec-none-of ?, ?\n)))
+  #+END_SRC
+
+  The result would be:
+  #+BEGIN_SRC elisp
+  ((("a" "1") ("b" "1") ("c" "1")) (("a" "2") ("b" "2") ("c" "2")))
+  #+END_SRC
+
+* More Parser Examples
   I translate some Haskell Parsec examples into Emacs Lisp using =parsec.el=.
   You can see from these examples that it is very easy to write parsers using
   =parsec.el=, and if you know haskell, you can see that basically I just
@@ -183,7 +270,8 @@ So we can
 
   Three of the examples are taken from the chapter [[http://book.realworldhaskell.org/read/using-parsec.html][Using Parsec]] in the book of
   [[http://book.realworldhaskell.org/read/][Real World Haskell]]:
-  - =simple-csv-parser.el=: a simple csv parser with no support for quoted cells
+  - =simple-csv-parser.el=: a simple csv parser with no support for quoted
+    cells, as explained in previous section.
   - =full-csv-parser.el=: a full csv parser
   - =url-str-parser.el=: parser parameters in URL
 
