@@ -129,12 +129,13 @@
        ((char-equal c ?-) (setq regex-end "-"))
        ((char-equal c ?^) (setq contains-caret-p t))
        (t (setq regex-str (concat regex-str (char-to-string c))))))
-    (if (and contains-caret-p
-             (string-equal regex-end "-")
-             (string-equal regex-head "")
-             (string-equal regex-str ""))
-        (setq regex-end "-^")
-      (setq regex-str (concat regex-str "^")))
+    (when contains-caret-p
+      (if (and
+           (string-equal regex-end "-")
+           (string-equal regex-head "")
+           (string-equal regex-str ""))
+          (setq regex-end "-^")
+        (setq regex-str (concat regex-str "^"))))
     (concat regex-head regex-str regex-end)))
 
 (defun parsec-one-of (&rest chars)

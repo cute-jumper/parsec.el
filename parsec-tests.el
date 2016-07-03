@@ -104,6 +104,24 @@
        :group 2))
     "bc")))
 
+(ert-deftest test-parsec-make-alternatives ()
+  (should
+   (equal
+    (parsec-make-alternatives '(?-))
+    "-"))
+  (should
+   (equal
+    (parsec-make-alternatives '(?- ?\] ?a ?^))
+    "]a^-"))
+  (should
+   (equal
+    (parsec-make-alternatives '(?- ?^))
+    "-^"))
+  (should
+   (equal
+    (parsec-make-alternatives '(?^ ?\"))
+    "\"^")))
+
 (ert-deftest test-parsec-one-of ()
   (should
    (equal
