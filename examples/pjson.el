@@ -20,7 +20,7 @@
 
 ;;; Commentary:
 
-;;
+;; Ref: https://hackage.haskell.org/package/json-0.9.1/docs/src/Text-JSON-Parsec.html
 
 ;;; Code:
 
@@ -80,7 +80,7 @@
 (defun pjson-char ()
   (parsec-or
    (parsec-and (parsec-ch ?\\) (pjson-esc))
-   (parsec-re "[^\"\\]")))
+   (parsec-none-of ?\" ?\\)))
 
 (defun pjson-esc ()
   (parsec-or
@@ -119,24 +119,6 @@
 (defun pjson-parse (input)
   (parsec-with-input input
     (pjson-object)))
-
-(parsec-with-input "123"
-  (pjson-number))
-(parsec-with-input "\"asdf\""
-  (pjson-string))
-(parsec-with-input "false"
-  (pjson-boolean))
-(parsec-with-input "[1,true,1,\"abc\",[1],null)"
-  (pjson-array))
-(message "%s" (parsec-msg-get (parsec-with-input "fallls"
-                                (pjson-jvalue))))
-(parsec-with-input "{\"a\" :1, \"b\":2, \"c\":[1,true] }"
-  (pjson-object))
-
-(pjson-parse  "{\"a\" :1, \"b\":2, [{ \"c\":[1,true] }]}")
-(json-read-from-string  "{\"a\" :1, \"b\":2, [{ \"c\":[1,true] }]}")
-(pjson-parse    "{\"a\" :1, \"b\":2, \"c\":[1,{\"d\":null}]}")
-(json-read-from-string  "{\"a\" :1, \"b\":2, \"c\":[1,{\"d\":null}]}")
 
 (provide 'pjson)
 ;;; pjson.el ends here
