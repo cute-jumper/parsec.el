@@ -209,12 +209,12 @@ fails after consuming some input or there is no more parsers."
         (error-sym (make-symbol "err"))
         (error-str-list-sym (make-symbol "err-list")))
     `(let (,error-str-list-sym ,parser-sym ,error-sym)
-       (catch 'parsec-parsec-or
+       (catch 'parsec-failed-or
          ,@(mapcar
             (lambda (parser)
               `(parsec-protect-atom parsec-or
                  (parsec-start
-                  (throw 'parsec-parsec-or
+                  (throw 'parsec-failed-or
                          (parsec-eavesdrop-error ,error-sym
                              (parsec-make-atom parsec-or ,parser)
                            (push (parsec-error-str ,error-sym) ,error-str-list-sym))))))
@@ -269,9 +269,9 @@ point of your parsing program."
   "This must be used together with `parsec-make-atom'."
   (declare (indent 1))
   (let ((tag (parsec--atom-tag name)))
-    `(catch 'parsec-success
+    `(catch 'parsec-failed-protect-atom
        (parsec-throw (catch ',tag
-                       (throw 'parsec-success ,parser))))))
+                       (throw 'parsec-failed-protect-atom ,parser))))))
 
 (defmacro parsec-make-atom (name parser)
   (let ((orig-pt-sym (make-symbol "orig-pt"))
@@ -285,9 +285,9 @@ point of your parsing program."
 
 (defmacro parsec-eavesdrop-error (error-sym parser &rest handler)
   (declare (indent 2))
-  `(catch 'parsec-success
+  `(catch 'parsec-failed-eavesdrop-error
      (let ((,error-sym (parsec-start
-                        (throw 'parsec-success ,parser))))
+                        (throw 'parsec-failed-eavesdrop-error ,parser))))
        ,@handler
        (parsec-throw ,error-sym))))
 
@@ -356,9 +356,9 @@ Used to scan comments:
         (end-res-sym (make-symbol "end-result")))
     `(let ((,res-sym nil) ,end-res-sym)
        (setq ,end-res-sym
-             (catch 'parsec-immediate-stop
+             (catch 'parsec-failed-many-till
                (while t
-                 (parsec-or (throw 'parsec-immediate-stop ,end)
+                 (parsec-or (throw 'parsec-failed-many-till ,end)
                             (push ,parser ,res-sym)))))
        (setq ,res-sym (nreverse ,res-sym))
        ,(cond
@@ -393,12 +393,12 @@ meaning as `parsec-many-till'."
 (defmacro parsec-not-followed-by (parser)
   "Succeed only when PARSER fails.  Consume no input."
   (let ((res-sym (make-symbol "results")))
-    `(catch 'parsec-not-followed-by
+    `(catch 'parsec-failed-not-followed-by-out
        (parsec-try
         (let ((,res-sym
-               (catch 'parsec-immediate-stop
-                 (throw 'parsec-not-followed-by
-                        (parsec-or (throw 'parsec-immediate-stop (parsec-try ,parser))
+               (catch 'parsec-failed-not-followed-by-in
+                 (throw 'parsec-failed-not-followed-by-out
+                        (parsec-or (throw 'parsec-failed-not-followed-by-in (parsec-try ,parser))
                                    nil)))))
           (parsec-stop :message (format "Unexpected followed by: %s" ,res-sym)))))))
 
