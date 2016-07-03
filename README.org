@@ -60,7 +60,8 @@ So we can
   Note:
   - =parsec-str= and =parsec-string= are different. =parsec-string= behaves the
     same as =string= in Haskell, and =parsec-str= is more like combining
-    =string= and =try= in Haskell.
+    =string= and =try= in Haskell. Personally I found =parsec-str= easier to use
+    because =parsec-str= is "atomic", which is similar to =parsec-ch=.
   - Use the power of regular expressions provided by =parsec-re= and simplify the parser!
 
 ** Parser Combinators
@@ -151,7 +152,7 @@ So we can
                                  (parsec-string "*/"))))
   #+END_SRC
 
-  THe equivalent Haskell program:
+  The following Haskell program does a similar thing:
   #+BEGIN_SRC haskell
   import           Text.Parsec
 
@@ -262,6 +263,19 @@ So we can
   message in its =cdr=. Compared to Haskell's Parsec, it's really simple, but at
   least the error message could tell us some information. Yeah, not perfect but
   usable.
+
+  To test whether a parser returns an error, use =parsec-error-p=. If it returns
+  an error, you can use =parsec-error-str= to retrieve the error message as a
+  string.
+
+  You can decide what to do based on the return value of a parser:
+  #+BEGIN_SRC elisp
+  (let ((res (parsec-with-input "hello"
+               (parsec-str "world"))))
+    (if (parsec-error-p res)
+        (message "Parser failed:\n%s" (parsec-error-str res))
+      (message "Parser succeeded by returning %s" res)))
+  #+END_SRC
 
 * Acknowledgement
   - Daan Leijen for Haskell's Parsec
