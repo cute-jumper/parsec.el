@@ -27,15 +27,16 @@
 (require 'parsec)
 
 (defun s-csv-file ()
-  (parsec-many (s-csv-line)))
+  (parsec-return (parsec-many (s-csv-line))
+    (parsec-eof)))
 
 (defun s-csv-line ()
-  (prog1 (s-csv-cells)
+  (parsec-return (s-csv-cells)
     (s-csv-eol)))
 
 (defun s-csv-eol ()
   (parsec-or (parsec-str "\n")
-             (parsec-eob)))
+             (parsec-eof)))
 
 (defun s-csv-cells ()
   (cons (s-csv-cell-content) (s-csv-remaining-cells)))

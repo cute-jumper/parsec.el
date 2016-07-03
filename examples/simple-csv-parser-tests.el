@@ -30,7 +30,7 @@
 (ert-deftest test-simple-csv ()
   (should
    (equal
-    (s-parse-csv "a1s,b,d,e,f\na,,c,d,")
+    (s-parse-csv "a1s,b,d,e,f\na,,c,d,\n")
     '(("a1s" "b" "d" "e" "f")
       ("a" "" "c" "d" "")))))
 
