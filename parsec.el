@@ -666,8 +666,7 @@ If the current parser succeeds, return its results.  If the
 current parser fails without consuming any input, try the next
 parser if available.  This combinator fails if the current parser
 fails after consuming some input or there is no more parsers."
-  (let ((outer-sym (make-symbol "outer"))
-        (parser-sym (make-symbol "parser"))
+  (let ((parser-sym (make-symbol "parser"))
         (error-sym (make-symbol "err"))
         (error-str-list-sym (make-symbol "err-list")))
     `(let (,error-str-list-sym ,parser-sym ,error-sym)
@@ -776,8 +775,7 @@ point of your parsing program."
 
 (defmacro parsec-many (parser)
   "Apply the PARSER zero or more times and return a list of the results."
-  (let ((res-sym (make-symbol "results"))
-        (error-sym (make-symbol "err")))
+  (let ((res-sym (make-symbol "results")))
     `(let (,res-sym)
        (parsec-protect-atom parsec-many
          (parsec-start
