@@ -31,7 +31,8 @@
 (defun url-str-pair ()
   (cons
    (parsec-many1-as-string (url-str-char))
-   (parsec-make-maybe (parsec-and (parsec-ch ?=) (parsec-many-as-string (url-str-char))))))
+   (parsec-optional-maybe
+    (parsec-and (parsec-ch ?=) (parsec-many-as-string (url-str-char))))))
 
 (defun url-str-char ()
   (parsec-or (parsec-re "[a-zA-z0-9$_.!*'(),-]")
@@ -48,14 +49,8 @@
                              16))))
 
 (defun url-str-parse (input)
-  (with-temp-buffer
-    (insert input)
-    (goto-char (point-min))
+  (parsec-with-input input
     (url-str-query)))
-
-(url-str-parse "foo=bar&a%21=b+c")
-(url-str-parse "foo=&a%21=b+c")
-(url-str-parse "foo&a%21=b+c")
 
 (provide 'url-str-parser)
 ;;; url-str-parser.el ends here
