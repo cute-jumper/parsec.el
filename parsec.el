@@ -394,12 +394,13 @@ meaning as `parsec-many-till'."
   "Succeed only when PARSER fails.  Consume no input."
   (let ((res-sym (make-symbol "results")))
     `(catch 'parsec-not-followed-by
-       (let ((,res-sym
-              (catch 'parsec-immediate-stop
-                (throw 'parsec-not-followed-by
-                       (parsec-or (throw 'parsec-immediate-stop (parsec-try ,parser))
-                                  nil)))))
-         (parsec-stop :message (format "Unexpected followed by: %s" ,res-sym))))))
+       (parsec-try
+        (let ((,res-sym
+               (catch 'parsec-immediate-stop
+                 (throw 'parsec-not-followed-by
+                        (parsec-or (throw 'parsec-immediate-stop (parsec-try ,parser))
+                                   nil)))))
+          (parsec-stop :message (format "Unexpected followed by: %s" ,res-sym)))))))
 
 (defmacro parsec-endby (parser end)
   "Parse zero or more occurrences of PARSER, separated and ended by END.

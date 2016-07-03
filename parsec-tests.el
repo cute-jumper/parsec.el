@@ -342,6 +342,15 @@
        (parsec-str "ab")
        (parsec-not-followed-by (parsec-ch ?c))
        (parsec-ch ?d)))
+    '("ab" "d")))
+  (should
+   (equal
+    (parsec-with-input "abd"
+      (parsec-collect*
+       (parsec-str "ab")
+       (parsec-or (parsec-not-followed-by (parsec-ch ?d))
+                  (parsec-not-followed-by (parsec-ch ?c)))
+       (parsec-ch ?d)))
     '("ab" "d"))))
 
 (ert-deftest test-parsec-endby ()
