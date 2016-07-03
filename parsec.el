@@ -41,6 +41,10 @@
 (defun parsec-error-new (msg)
   (cons 'parsec-error msg))
 
+(defun parsec-error-new-2 (expected found)
+  (parsec-error-new (format "Found \"%s\" -> Expected \"%s\""
+                            found expected)))
+
 (defun parsec-error-p (obj)
   (and (consp obj)
        (eq (car obj) 'parsec-error)))
@@ -59,10 +63,9 @@
            (when (or (stringp msg)
                      (and (stringp expected)
                           (stringp found)))
-             (parsec-error-new (if (stringp msg)
-                                   msg
-                                 (format "Found \"%s\" -> Expected \"%s\""
-                                         found expected))))))))
+             (if (stringp msg)
+                 (parsec-error-new msg)
+               (parsec-error-new-2 expected found)))))))
 
 (defun parsec-ch (ch)
   (let ((next-char (char-after)))

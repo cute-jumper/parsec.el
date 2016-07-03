@@ -27,10 +27,6 @@
 (require 'ert)
 (require 'parsec)
 
-(defun test-parsec-error-new (expected found)
-  (parsec-error-new (format "Found \"%s\" -> Expected \"%s\""
-                            found expected)))
-
 (ert-deftest test-parsec-ch ()
   (should
    (equal
@@ -88,7 +84,7 @@
     (parsec-with-input "\ra"
       (parsec-eol)
       (parsech-ch ?a))
-    (test-parsec-error-new "\n" "a"))))
+    (parsec-error-new-2 "\n" "a"))))
 
 (ert-deftest test-parsec-eof ()
   (should
@@ -153,7 +149,7 @@
     (parsec-with-input "abc"
       (parsec-or (parsec-string "ac")
                  (parsec-ch ?a)))
-    (test-parsec-error-new "c" "b")))
+    (parsec-error-new-2 "c" "b")))
   (should
    (equal
     (parsec-with-input "abc"
@@ -173,7 +169,7 @@
     (parsec-with-input "124"
       (parsec-or (parsec-string "13")
                  (parsec-ch ?1)))
-    (test-parsec-error-new "3" "2")))
+    (parsec-error-new-2 "3" "2")))
   (should
    (equal
     (parsec-with-input "124"
@@ -262,12 +258,12 @@
        (parsec-many-as-string (parsec-ch ?c))
        (parsec-many1-as-string (parsec-ch ?b))
        (parsec-many1-as-string (parsec-ch ?c))))
-    (test-parsec-error-new "c" "`EOF'")))
+    (parsec-error-new-2 "c" "`EOF'")))
   (should
    (equal
     (parsec-with-input "abababaa"
       (parsec-many1-as-string (parsec-string "ab")))
-    (test-parsec-error-new "b" "a")))
+    (parsec-error-new-2 "b" "a")))
   (should
    (equal
     (parsec-with-input "abababaa"
@@ -364,7 +360,7 @@
        (parsec-or
         (parsec-string "ac")
         (parsec-many-as-string (parsec-letter)))))
-    (test-parsec-error-new "c" "b"))))
+    (parsec-error-new-2 "c" "b"))))
 
 (ert-deftest test-parsec-count ()
   (should
@@ -379,7 +375,7 @@
    (equal
     (parsec-with-input "ab"
       (parsec-option "opt" (parsec-string "ac")))
-    (test-parsec-error-new "c" "b")))
+    (parsec-error-new-2 "c" "b")))
   (should
    (equal
     (parsec-with-input "ab"
