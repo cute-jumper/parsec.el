@@ -105,6 +105,9 @@
 
 (defalias 'parsec-eof 'parsec-eob)
 
+(defun parsec-eol-or-eof ()
+  (parsec-or (parsec-eol) (parsec-eof)))
+
 (defun parsec-re (regexp)
   (if (looking-at regexp)
       (progn (goto-char (match-end 0))
@@ -112,8 +115,36 @@
     (parsec-stop :expected regexp
                  :found (parsec-eof-or-char-as-string))))
 
+(defun parsec-make-alternatives (chars)
+  (let ((regex-head "")
+        (regex-str "")
+        (regex-end "")
+        contains-caret-p)
+    (dolist (c chars)
+      (cond
+       ((char-equal c ?\]) (setq regex-head "]"))
+       ((char-equal c ?-) (setq regex-end "-"))
+       ((char-equal c ?^) (setq contains-caret-p t))
+       (t (setq regex-str (concat regex-str (char-to-string c))))))
+    (if (and contains-caret-p
+             (string-equal regex-end "-")
+             (string-equal regex-head "")
+             (string-equal regex-str ""))
+        (setq regex-end "-^")
+      (setq regex-str (concat regex-str "^")))
+    (concat regex-head regex-str regex-end)))
+
+(defun parsec-one-of (&rest chars)
+  (parsec-re (format "[%s]" (parsec-make-alternatives chars))))
+
+(defun parsec-none-of (&rest chars)
+  (parsec-re (format "[^%s]" (parsec-make-alternatives chars))))
+
 (defsubst parsec-str (str)
   (parsec-re (regexp-quote str)))
+
+(defsubst parsec-string (str)
+  (mapc (lambda (c) (parsec-ch c)) str))
 
 (defsubst parsec-num (num &rest args)
   (parsec-re (regexp-quote (number-to-string num))))
