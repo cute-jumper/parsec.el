@@ -3,6 +3,7 @@
 ;; Copyright (C) 2016  Junpeng Qiu
 
 ;; Author: Junpeng Qiu <qjpchmail@gmail.com>
+;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
 ;; Keywords: extensions
 
 ;; This program is free software; you can redistribute it and/or modify
