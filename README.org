@@ -176,12 +176,11 @@ So we can
   You can find the code in =examples/simple-csv-parser.el=. The code is based
   on the Haskell code in [[http://book.realworldhaskell.org/read/using-parsec.html][Using Parsec]].
 
-  An end-of-line should a string =\n=. We use =(parsec-str "\n")= to parse it
+  An end-of-line should be a string =\n=. We use =(parsec-str "\n")= to parse it
   (Note that since =\n= is also one character, =(parsec-ch ?\n)= also works).
   Some files may not contain a newline at the end, but we can view end-of-file
   as the end-of-line for the last line, and use =parsec-eof= (or =parsec-eob=)
-  to parse the end-of-file. We use =parsec-or= to combine these two
-  combinators:
+  to parse the end-of-file. We use =parsec-or= to combine these two combinators:
   #+BEGIN_SRC elisp
   (defun s-csv-eol ()
     (parsec-or (parsec-str "\n")

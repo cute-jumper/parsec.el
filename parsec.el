@@ -253,7 +253,7 @@
 ;;   You can find the code in `examples/simple-csv-parser.el'. The code is
 ;;   based on the Haskell code in [Using Parsec].
 
-;;   An end-of-line should a string `\n'. We use `(parsec-str "\n")' to
+;;   An end-of-line should be a string `\n'. We use `(parsec-str "\n")' to
 ;;   parse it (Note that since `\n' is also one character, `(parsec-ch
 ;;   ?\n)' also works). Some files may not contain a newline at the end,
 ;;   but we can view end-of-file as the end-of-line for the last line, and
