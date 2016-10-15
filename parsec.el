@@ -707,6 +707,8 @@ This combinator fails if one of the parsers fails.")
   "Collect the results of all the parsers FORMS as a string."
   `(parsec-list-to-string (parsec-collect ,@forms)))
 
+(defalias 'parsec-collect-s 'parsec-collect-as-string)
+
 (defmacro parsec-start (&rest forms)
   "Eval the parsers FORMS and return the results or a `parsec-error'.
 This combinator should be used at the top level as the entry
@@ -797,9 +799,13 @@ point of your parsing program."
   "Apply the PARSER zero or more times and return the results as a string."
   `(mapconcat #'identity (parsec-many ,parser) ""))
 
+(defalias 'parsec-many-s 'parsec-many-as-string)
+
 (defmacro parsec-many1-as-string (parser)
   "Apply the PARSER one or more times and return the results as a string."
   `(mapconcat #'identity (parsec-many1 ,parser) ""))
+
+(defalias 'parsec-many1-s 'parsec-many1-as-string)
 
 (defmacro parsec-many-till (parser end &optional type)
   "Apply PARSER zero or more times until END succeeds.
@@ -840,6 +846,8 @@ meaning as `parsec-many-till'."
      (t
       `(parsec-list-to-string (parsec-many-till ,parser ,end ,type))))))
 
+(defalias 'parsec-many-till-s 'parsec-many-till-as-string)
+
 (defmacro parsec-until (parser &optional type)
   "Parse any characters until PARSER succeeds.
 TYPE has the same meaning as `parsec-many-till'."
@@ -850,6 +858,8 @@ TYPE has the same meaning as `parsec-many-till'."
 Return the result of either part as a string.  TYPE has the same
 meaning as `parsec-many-till'."
   `(parsec-many-till-as-string (parsec-any-ch) ,parser ,type))
+
+(defalias 'parsec-until-s 'parsec-until-as-string)
 
 (defmacro parsec-not-followed-by (parser)
   "Succeed only when PARSER fails.  Consume no input."
@@ -896,6 +906,8 @@ Return a list of N values returned by PARSER."
   "Parse N occurrences of PARSER.
 Return the N values returned by PARSER as a string."
   `(parsec-list-to-string (parsec-count ,n ,parser)))
+
+(defalias 'parsec-count-s 'parsec-count-as-string)
 
 (defmacro parsec-option (opt parser)
   "Try to apply PARSER and return OPT if PARSER fails without comsuming input."
