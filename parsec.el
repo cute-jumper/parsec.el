@@ -200,15 +200,19 @@
 
 ;;   They all have a variant that returns a string by concatenating the
 ;;   results in the list:
-;;   - `parsec-many-as-string'
-;;   - `parsec-many1-as-string'
-;;   - `parsec-many-till-as-string'
-;;   - `parsec-until-as-string'
-;;   - `parsec-collect-as-string'
+;;   - `parsec-many-as-string' or `parsec-many-s'
+;;   - `parsec-many1-as-string' or `parsec-many1-s'
+;;   - `parsec-many-till-as-string' or `parsec-many-till-s'
+;;   - `parsec-until-as-string' or `parsec-until-s'
+;;   - `parsec-collect-as-string' or `parsec-collect-s'
+;;   - `parsec-count-as-string' or `parsec-count-s'
 
-;;   These variants accept the same arguments. The only difference is the
-;;   return value. In most cases I found myself using these variants
-;;   instead of the original versions that return a list.
+;;   The `*-s' and `*-as-string' variants are the same, except the `*-s'
+;;   variants have a shorter name. Using these `*-s' functions are
+;;   recommended if you're using these variants more frequently. These
+;;   variants accept the same arguments. The only difference is the return
+;;   value. In most cases I found myself using these variants instead of
+;;   the original versions that return a list.
 
 
 ;; 3 Code Examples
