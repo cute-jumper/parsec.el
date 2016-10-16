@@ -209,10 +209,10 @@
 
 ;;   The `*-s' and `*-as-string' variants are the same, except the `*-s'
 ;;   variants have a shorter name. Using these `*-s' functions are
-;;   recommended if you're using these variants more frequently. These
-;;   variants accept the same arguments. The only difference is the return
-;;   value. In most cases I found myself using these variants instead of
-;;   the original versions that return a list.
+;;   recommended if you're dealing with strings very frequently in your
+;;   code. These variants accept the same arguments and have the same
+;;   behavior as their original counterpart that returns a list. The only
+;;   difference is the return value.
 
 
 ;; 3 Code Examples
