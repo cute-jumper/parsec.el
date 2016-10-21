@@ -941,6 +941,28 @@ This combinator has the same behavior as the `optional' function of
 Haskell's Parsec."
   `(parsec-and ,parser nil))
 
+(defmacro parsec-peek (parser)
+  "Apply PARSER without consuming any input.
+When PARSER succeeds, the result of the PARSER is returned.
+Otherwise, the return value is an error.  Use `parsec-error-p' on
+the return value to see whether the PARSER fails or not.  Use
+`parsec-peek-p' if you want nil to be returned when PARSER fails.
+
+This is a shortcut of combining `parsec-start', `parsec-try' and
+`parsec-lookahead'.  Since arbitrary parser is allowed, this
+function can be viewed as a more powerful version of `looking-at'
+in Emacs Lisp."
+  `(parsec-start
+    (parsec-try
+     (parsec-lookahead ,parser))))
+
+(defmacro parsec-peek-p (parser)
+  "Same as `parsec-peek' except a nil is returned when the PARSER fails."
+  (let ((res-sym (make-symbol "res")))
+    `(let ((,res-sym (parsec-peek ,parser)))
+       (unless (parsec-error-p ,res-sym)
+         ,res-sym))))
+
 (defmacro parsec-query (parser &rest args)
   "Get an alternative return value of the PARSER specified by the ARGS.
 
