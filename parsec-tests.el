@@ -229,6 +229,35 @@
                  (parsec-str "abc")))
     "abc")))
 
+(ert-deftest test-parsec-lookahead ()
+  (should
+   (equal
+    (parsec-with-input "abc"
+      (parsec-lookahead (parsec-str "abc"))
+      (point))
+    (point-min)))
+  (should
+   (equal
+    (parsec-with-input "abc"
+      (parsec-start
+       (parsec-lookahead
+        (parsec-and
+          (parsec-ch ?a)
+          (parsec-ch ?c))))
+      (point))
+    (1+ (point-min))))
+  (should
+   (equal
+    (parsec-with-input "abc"
+      (parsec-start
+       (parsec-try
+        (parsec-lookahead
+         (parsec-and
+           (parsec-ch ?a)
+           (parsec-ch ?c)))))
+      (point))
+    (point-min))))
+
 (ert-deftest test-parsec-error-handles ()
   (should
    (equal

@@ -730,6 +730,13 @@ point of your parsing program."
            (parsec-and ,parser)
          (goto-char ,orig-pt-sym)))))
 
+(defmacro parsec-lookahead (parser)
+  "Try PARSER, and pretend that no input is consumed when it succeeds."
+  (let ((orig-pt-sym (make-symbol "orig-pt")))
+    `(let ((,orig-pt-sym (point)))
+       (parsec-return ,parser
+         (goto-char ,orig-pt-sym)))))
+
 (defsubst parsec--atom-tag (name)
   (intern (format "parsec-failed-at-half-%s" name)))
 
