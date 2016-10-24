@@ -95,6 +95,10 @@
 ;;   at the docstrings of these functions and macros and try them to see
 ;;   the results! They are really easy to learn and use!
 
+;;   The *Usage* column for each function/combinator in the following
+;;   tables is much simplified. Check the docstring of the
+;;   function/combinator to see the full description.
+
 
 ;; 2.1 Basic Parsing Functions
 ;; ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -140,6 +144,9 @@
 ;;   -----------------------------------------------------------------------------------------------------------
 ;;    parsec-or                  choice            try the parsers until one succeeds
 ;;    parsec-try                 try               try parser and consume no input when an error occurs
+;;    parsec-lookahead           lookahead         try parser and consume no input when successful
+;;    parsec-peek                try && lookahead  try parser without comsuming any input
+;;    parsec-peek-p              try && lookahead  same as parsec-peek except the return value for failure
 ;;    parsec-with-error-message  <?> (similar)     use the new error message when an error occurs
 ;;    parsec-many                many              apply the parser zero or more times
 ;;    parsec-many1               many1             apply the parser one or more times
