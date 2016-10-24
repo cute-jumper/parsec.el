@@ -3,6 +3,9 @@
 ;; Copyright (C) 2016  Junpeng Qiu
 
 ;; Author: Junpeng Qiu <qjpchmail@gmail.com>
+;; Maintainer: Junpeng Qiu <qjpchmail@gmail.com>
+;; URL: https://github.com/cute-jumper/parsec.el
+;; Version: 0.1.3
 ;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
 ;; Keywords: extensions
 
