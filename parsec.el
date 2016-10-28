@@ -1,6 +1,6 @@
 ;;; parsec.el --- Parser combinator library  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2016  Junpeng Qiu
+;; Copyright (C) 2016  Free Software Foundation, Inc.
 
 ;; Author: Junpeng Qiu <qjpchmail@gmail.com>
 ;; Maintainer: Junpeng Qiu <qjpchmail@gmail.com>

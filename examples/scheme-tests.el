@@ -1,6 +1,6 @@
 ;;; scheme-tests.el --- Tests for scheme parser      -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2016  Junpeng Qiu
+;; Copyright (C) 2016  Free Software Foundation, Inc.
 
 ;; Author: Junpeng Qiu <qjpchmail@gmail.com>
 ;; Keywords:

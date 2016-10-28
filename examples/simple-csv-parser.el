@@ -1,6 +1,6 @@
 ;;; simple-csv-parser.el --- Simple CSV parser using parsec.el  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2016  Junpeng Qiu
+;; Copyright (C) 2016  Free Software Foundation, Inc.
 
 ;; Author: Junpeng Qiu <qjpchmail@gmail.com>
 ;; Keywords: extensions

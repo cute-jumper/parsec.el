@@ -1,6 +1,6 @@
 ;;; url-str-parser-tests.el --- Tests for url-str-parser  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2016  Junpeng Qiu
+;; Copyright (C) 2016  Free Software Foundation, Inc.
 
 ;; Author: Junpeng Qiu <qjpchmail@gmail.com>
 ;; Keywords:
