@@ -548,7 +548,8 @@
   "Parse a character CH."
   (let ((next-char (char-after)))
     (if (and (not (eobp))
-             (char-equal next-char ch))
+	     (let ((case-fold-search nil)) ;; case sensitivity for char-equal
+	       (char-equal next-char ch)))
         (progn (forward-char 1)
                (char-to-string ch))
       (parsec-stop :expected (char-to-string ch)
