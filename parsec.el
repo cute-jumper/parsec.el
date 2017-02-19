@@ -600,15 +600,14 @@
         (setq regex-str (concat regex-str "^"))))
     (concat regex-head regex-str regex-end)))
 
-(defun parsec-one-of (&rest chars)
+(defmacro parsec-one-of (&rest chars)
   "Succeed if the current character is in the supplied list of CHARS.
 Return the parsed character.
 
->  (parsec-one-of ?a ?e ?i ?o ?u)
-
-Note this function is just a wrapper of `parsec-re'.  For complicated use cases,
-consider using `parsec-re' instead."
-  (parsec-re (format "[%s]" (parsec-make-alternatives chars))))
+>  (parsec-one-of ?a ?e ?i ?o ?u)"
+  (let ((sexp '(parsec-or))
+	(parsers (mapcar (lambda (c) (list #'parsec-ch c)) chars)))
+    (append sexp parsers)))
 
 (defun parsec-none-of (&rest chars)
   "Succeed if the current character not in the supplied list of CHARS.
