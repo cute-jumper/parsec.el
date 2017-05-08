@@ -677,13 +677,16 @@ fails after consuming some input or there is no more parsers."
            (concat "None of the parsers succeeds:\n"
                    (mapconcat #'identity ,error-str-list-sym "\n"))))))))
 
-(defalias 'parsec-and 'progn
+(defmacro parsec-and (&rest body)
   "Eval BODY sequentially and return the result of the last parser.
-This combinator fails if one of the parsers fails.")
+This combinator fails if one of the parsers fails."
+  `(progn ,@body))
 
-(defalias 'parsec-return 'prog1
+(defmacro parsec-return (first &rest body)
   "Eval FIRST and BODY sequentially and return the results of the first parser.
-This combinator fails if one of the parsers fails.")
+This combinator fails if one of the parsers fails."
+  (declare (indent 1))
+  `(prog1 ,first ,@body))
 
 (defalias 'parsec-collect 'list
   "Collect the results of all the parsers OBJECTS into a list.")
