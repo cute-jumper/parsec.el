@@ -899,7 +899,8 @@ Return a list of N values returned by PARSER."
   (let ((res-sym (make-symbol "results")))
     `(let (,res-sym)
        (dotimes (_ ,n ,res-sym)
-         (push ,parser ,res-sym)))))
+         (push ,parser ,res-sym))
+       (nreverse ,res-sym))))
 
 (defmacro parsec-count-as-string (n parser)
   "Parse N occurrences of PARSER.
