@@ -51,7 +51,7 @@ So we can
   | parsec-crlf            | crlf             | parse '\r\n'                                          |
   | parsec-eol             | eol              | parse newline or CRLF                                 |
   | parsec-eof, parsec-eob | eof              | parse end of file                                     |
-  | parsec-eol-or-eof      | *N/A*            | parse EOL or EOL                                      |
+  | parsec-eol-or-eof      | *N/A*            | parse EOL or EOF                                      |
   | parsec-re              | *N/A*            | parse using a regular expression                      |
   | parsec-one-of          | oneOf            | parse one of the characters                           |
   | parsec-none-of         | noneOf           | parse any character other than the supplied ones      |
