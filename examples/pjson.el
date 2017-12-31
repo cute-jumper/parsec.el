@@ -46,7 +46,7 @@
 (defun pjson-value ()
   (parsec-and
     (pjson-spaces)
-    (pjson-jvaule)))
+    (pjson-jvalue)))
 
 (defun pjson-jvalue ()
   (parsec-or (pjson-null)
