@@ -501,7 +501,8 @@
 
 ;;; Code:
 
-(require 'cl-lib)
+(eval-when-compile 
+  (require 'cl-lib))
 
 (defgroup parsec nil
   "Parser combinators for Emacs Lisp"
